@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unity Quest — World 1: Words & Feelings</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Nunito',sans-serif;overflow:hidden;background:#0d0020;color:#fff;}
+#screens>div{display:none;position:fixed;inset:0;z-index:10;}
+#screens>div.active{display:flex;}
+/* STARS */
+#title-screen{background:#0d0020;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
+.star{position:absolute;background:#fff;border-radius:50%;animation:twinkle var(--d,2s) ease-in-out infinite alternate;}
+@keyframes twinkle{0%{opacity:.1;transform:scale(.8);}100%{opacity:1;transform:scale(1.3);}}
+.title-glow{font-family:'Cinzel',serif;font-size:clamp(2.5rem,8vw,6rem);font-weight:900;color:#FFD700;text-shadow:0 0 20px #FFD700,0 0 40px #FF8C00,0 0 80px #FF6B00;animation:glow 2s ease-in-out infinite alternate;letter-spacing:.1em;}
+@keyframes glow{0%{text-shadow:0 0 20px #FFD700,0 0 40px #FF8C00;}100%{text-shadow:0 0 40px #FFD700,0 0 80px #FF8C00,0 0 120px #FFD700;}}
+.title-sub{font-family:'Cinzel',serif;font-size:clamp(1rem,3vw,1.6rem);color:#FFB347;margin:.5rem 0;}
+.session-badge{background:linear-gradient(135deg,#6B35CF,#9B59B6);border:2px solid #FFD700;border-radius:20px;padding:.4rem 1.2rem;font-size:.9rem;font-weight:700;color:#FFD700;margin:1rem 0;}
+.btn-primary{font-family:'Cinzel',serif;font-size:1.1rem;font-weight:700;background:linear-gradient(135deg,#FFD700,#FF8C00);color:#1A0800;border:none;border-radius:40px;padding:.8rem 2.2rem;cursor:pointer;box-shadow:0 4px 20px rgba(255,215,0,.4);transition:all .2s;margin:.4rem;}
+.btn-primary:hover{transform:scale(1.05);box-shadow:0 6px 30px rgba(255,215,0,.6);}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.btn-secondary{font-family:'Nunito',sans-serif;font-size:.95rem;font-weight:700;background:rgba(255,255,255,.1);color:#fff;border:2px solid rgba(255,255,255,.3);border-radius:30px;padding:.5rem 1.5rem;cursor:pointer;transition:all .2s;margin:.3rem;}
+.btn-secondary:hover{background:rgba(255,255,255,.2);}
+.staff-lock{position:fixed;bottom:1rem;right:1rem;background:rgba(0,0,0,.6);border:2px solid rgba(255,215,0,.4);border-radius:12px;padding:.5rem .8rem;cursor:pointer;font-size:1.2rem;z-index:1000;transition:all .2s;}
+.staff-lock:hover{border-color:#FFD700;}
+/* CHAR SELECT */
+#char-screen{background:linear-gradient(160deg,#0d0020,#1a0040);flex-direction:column;align-items:center;overflow-y:auto;padding:2rem 1rem;}
+.char-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;max-width:780px;width:100%;margin:1rem 0;}
+.char-card{background:rgba(255,255,255,.05);border:2px solid rgba(255,255,255,.15);border-radius:16px;padding:1rem .8rem;cursor:pointer;transition:all .25s;text-align:center;}
+.char-card:hover{transform:translateY(-4px);border-color:rgba(255,215,0,.5);}
+.char-card.selected{border-color:#FFD700;box-shadow:0 0 25px rgba(255,215,0,.5);background:rgba(255,215,0,.08);}
+.char-card svg{width:90px;height:110px;margin:0 auto .5rem;display:block;}
+.char-name{font-family:'Cinzel',serif;font-size:.9rem;font-weight:700;color:#FFD700;}
+.char-desc{font-size:.75rem;color:#ccc;margin:.2rem 0;}
+.char-dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin:.3rem auto 0;}
+/* WORLD */
+#world-screen{background:#1A0800;flex-direction:column;}
+#three-canvas{position:absolute;inset:0;}
+#hud{position:absolute;top:1rem;left:50%;transform:translateX(-50%);display:flex;gap:.7rem;align-items:center;z-index:20;pointer-events:none;}
+.hud-pill{background:rgba(0,0,0,.65);border:2px solid rgba(255,165,0,.4);border-radius:20px;padding:.35rem .9rem;font-size:.85rem;font-weight:700;backdrop-filter:blur(6px);}
+.gem-count{color:#FFD700;}
+.hud-title{color:#FFB347;font-family:'Cinzel',serif;font-size:.8rem;}
+#tips-btn-world{pointer-events:all;background:rgba(0,0,0,.7);border:2px solid rgba(255,165,0,.5);border-radius:50%;width:36px;height:36px;color:#FFD700;font-size:1rem;font-weight:900;cursor:pointer;position:absolute;top:1rem;right:1rem;z-index:20;}
+#portal-prompt{position:absolute;bottom:4rem;left:50%;transform:translateX(-50%);background:rgba(255,140,0,.92);color:#1A0800;font-family:'Cinzel',serif;font-weight:700;font-size:1rem;padding:.6rem 1.8rem;border-radius:30px;display:none;z-index:20;animation:pp 1s infinite alternate;white-space:nowrap;}
+@keyframes pp{0%{transform:translateX(-50%) scale(1);}100%{transform:translateX(-50%) scale(1.05);}}
+#move-hint{position:absolute;bottom:1rem;left:50%;transform:translateX(-50%);color:rgba(255,165,0,.55);font-size:.78rem;z-index:20;white-space:nowrap;}
+/* SWOOP */
+#swoop{position:fixed;inset:0;z-index:200;pointer-events:none;display:none;}
+#swoop.active{display:block;}
+.swoop-inner{position:absolute;inset:0;background:linear-gradient(135deg,#FF8C00,#FFD700,#FF8C00);transform:translateX(-110%);}
+/* ACTIVITY */
+.act-screen{background:linear-gradient(160deg,#FFF8E7,#FDEBD0);flex-direction:column;align-items:center;overflow-y:auto;padding:2rem 1rem;}
+.act-header{font-family:'Cinzel',serif;font-size:1.5rem;font-weight:900;color:#6B35CF;text-align:center;margin-bottom:.3rem;}
+.act-intro{max-width:600px;text-align:center;color:#4a4a4a;font-size:.95rem;line-height:1.65;margin:.7rem 0 1.3rem;font-style:italic;background:rgba(107,53,207,.07);border-left:4px solid #6B35CF;border-radius:0 10px 10px 0;padding:.8rem 1rem;}
+.word-bank{display:flex;flex-wrap:wrap;gap:.55rem;justify-content:center;margin:.8rem 0;max-width:600px;}
+.word-chip{background:#6B35CF;color:#fff;border:none;border-radius:20px;padding:.45rem 1.1rem;font-family:'Nunito',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .2s;}
+.word-chip:hover{background:#5a28b5;transform:scale(1.05);}
+.word-chip.sorted{opacity:.3;pointer-events:none;background:#aaa;}
+.sort-choice-area{min-height:54px;margin:.5rem 0;display:flex;flex-direction:column;align-items:center;}
+.sort-choices{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;margin:.4rem 0;}
+.sort-btn{border:none;border-radius:20px;padding:.5rem 1.2rem;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .2s;font-family:'Nunito',sans-serif;}
+.sort-btn:hover{transform:scale(1.06);}
+.sort-happy{background:#22C55E;color:#fff;}
+.sort-sad{background:#EF4444;color:#fff;}
+.sort-scared{background:#F59E0B;color:#fff;}
+.sort-cols{display:flex;gap:.8rem;max-width:640px;width:100%;margin:.8rem 0;}
+.sort-col{flex:1;border-radius:12px;padding:.7rem;min-height:70px;}
+.sort-col.happy{background:rgba(34,197,94,.12);border:2px solid #22C55E;}
+.sort-col.sad{background:rgba(239,68,68,.12);border:2px solid #EF4444;}
+.sort-col.scared{background:rgba(245,158,11,.12);border:2px solid #F59E0B;}
+.sort-col h4{font-size:.78rem;font-weight:800;margin-bottom:.4rem;color:#333;}
+.sorted-word{background:rgba(0,0,0,.1);border-radius:8px;padding:.15rem .5rem;font-size:.78rem;margin:.15rem 2px;display:inline-block;color:#222;}
+.act-q{max-width:600px;width:100%;margin:.8rem 0;background:rgba(255,255,255,.75);border-radius:16px;padding:1.1rem;border:1px solid rgba(107,53,207,.15);}
+.act-q h3{font-family:'Cinzel',serif;color:#6B35CF;font-size:1rem;margin-bottom:.7rem;line-height:1.4;}
+.opt-btn{display:block;width:100%;text-align:left;background:rgba(107,53,207,.08);border:2px solid rgba(107,53,207,.18);border-radius:10px;padding:.55rem .9rem;margin:.35rem 0;font-family:'Nunito',sans-serif;font-size:.88rem;cursor:pointer;transition:all .18s;}
+.opt-btn:hover{background:rgba(107,53,207,.18);}
+.opt-btn.selected{background:#6B35CF;color:#fff;border-color:#6B35CF;}
+.free-text{width:100%;border:2px solid rgba(107,53,207,.25);border-radius:10px;padding:.55rem .8rem;font-family:'Nunito',sans-serif;font-size:.88rem;resize:vertical;min-height:58px;background:rgba(255,255,255,.85);margin-top:.4rem;}
+.free-text:focus{outline:none;border-color:#6B35CF;}
+.learned-box{max-width:600px;width:100%;margin:.7rem 0;}
+.learned-box label{font-weight:800;color:#6B35CF;display:block;margin-bottom:.3rem;font-size:.9rem;}
+.submit-row{margin:1.2rem 0;text-align:center;}
+.tips-float{position:sticky;bottom:1rem;margin-top:.5rem;background:rgba(107,53,207,.15);border-color:rgba(107,53,207,.4);color:#6B35CF;}
+/* GEM REWARD */
+#gem-reward{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;flex-direction:column;}
+#gem-reward.active{display:flex;}
+.gem-reward-inner{background:linear-gradient(135deg,#1A0040,#2D0060);border:3px solid #FFD700;border-radius:24px;padding:2.5rem 2rem;text-align:center;max-width:380px;width:90%;}
+.gem-spin{font-size:3rem;display:inline-block;animation:gspin 1.2s linear infinite;}
+@keyframes gspin{to{transform:rotate(360deg);}}
+.gem-reward-title{font-family:'Cinzel',serif;font-size:1.7rem;color:#FFD700;margin:.7rem 0 .3rem;}
+.gem-reward-sub{color:#FFB347;font-size:.95rem;}
+/* SHOP */
+#shop-screen{background:linear-gradient(160deg,#1A0040,#0d0020);flex-direction:column;align-items:center;overflow-y:auto;padding:2rem 1rem;}
+.shop-title{font-family:'Cinzel',serif;font-size:1.9rem;color:#FFD700;text-align:center;margin-bottom:.3rem;}
+.gem-total-disp{font-size:1.05rem;color:#FFB347;margin-bottom:1.3rem;}
+.shop-sect{max-width:700px;width:100%;margin:.8rem 0;}
+.shop-sect h3{font-family:'Cinzel',serif;color:#FFD700;font-size:1.1rem;margin-bottom:.7rem;}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.7rem;}
+.shop-item{background:rgba(255,255,255,.07);border:2px solid rgba(255,215,0,.2);border-radius:14px;padding:.8rem .6rem;text-align:center;cursor:pointer;transition:all .2s;}
+.shop-item:hover{border-color:rgba(255,215,0,.5);background:rgba(255,215,0,.08);}
+.shop-item.purchased{border-color:#FFD700;background:rgba(255,215,0,.15);}
+.shop-item.sel-bg{border-color:#FFD700;box-shadow:0 0 15px rgba(255,215,0,.45);}
+.shop-item-name{font-weight:700;font-size:.8rem;margin:.35rem 0 .15rem;color:#fff;}
+.shop-item-cost{font-size:.72rem;color:#FFB347;}
+.shop-preview{max-width:700px;width:100%;background:rgba(255,255,255,.04);border:2px solid rgba(255,215,0,.2);border-radius:16px;padding:1rem;margin:.8rem 0;text-align:center;}
+/* CERT */
+#cert-screen{background:#f0ece4;flex-direction:column;align-items:center;overflow-y:auto;padding:2rem 1rem;}
+.cert-wrap{width:100%;max-width:760px;background:#fff;border-radius:10px;box-shadow:0 4px 30px rgba(0,0,0,.2);padding:1rem;}
+.cert-actions{display:flex;gap:1rem;justify-content:center;margin:1.5rem 0;flex-wrap:wrap;}
+/* STAFF */
+#staff-screen{background:#fff;flex-direction:column;align-items:center;overflow-y:auto;padding:2rem;color:#1a1a1a;}
+.staff-hdr{font-family:'Cinzel',serif;font-size:1.4rem;color:#1a1a1a;border-bottom:3px solid #1a1a1a;padding-bottom:.5rem;margin-bottom:1.4rem;max-width:700px;width:100%;}
+.staff-sect{max-width:700px;width:100%;margin:.9rem 0;}
+.staff-sect h3{font-family:'Cinzel',serif;font-size:1rem;border-bottom:1px solid #ccc;padding-bottom:.3rem;margin-bottom:.7rem;}
+.staff-table{width:100%;border-collapse:collapse;font-size:.88rem;}
+.staff-table th,.staff-table td{border:1px solid #ccc;padding:.38rem .65rem;text-align:left;}
+.staff-table th{background:#f0f0f0;font-weight:700;}
+.staff-field{margin:.45rem 0;font-size:.88rem;line-height:1.5;}
+.staff-field strong{display:block;color:#444;font-size:.82rem;text-transform:uppercase;letter-spacing:.03em;}
+.staff-actions{display:flex;gap:.8rem;margin:1.4rem 0;flex-wrap:wrap;max-width:700px;width:100%;}
+/* PIN */
+#pin-modal{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.75);display:none;align-items:center;justify-content:center;}
+#pin-modal.active{display:flex;}
+.pin-inner{background:#1A0040;border:2px solid #FFD700;border-radius:20px;padding:2rem;text-align:center;min-width:280px;}
+.pin-inner h3{font-family:'Cinzel',serif;color:#FFD700;margin-bottom:.8rem;}
+.pin-input{font-size:1.4rem;letter-spacing:.4em;width:100%;border:2px solid rgba(255,215,0,.4);background:rgba(255,255,255,.1);color:#fff;border-radius:10px;padding:.5rem;text-align:center;margin:.5rem 0;font-family:'Nunito',sans-serif;}
+.pin-input:focus{outline:none;border-color:#FFD700;}
+.pin-error{color:#EF4444;font-size:.83rem;min-height:1.2em;margin:.3rem 0;}
+/* TIPS */
+#tips-modal{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;}
+#tips-modal.active{display:flex;}
+.tips-inner{background:#1A0040;border:2px solid rgba(255,165,0,.5);border-radius:20px;padding:2rem;max-width:480px;width:90%;line-height:1.65;}
+.tips-inner h3{font-family:'Cinzel',serif;color:#FFD700;margin-bottom:.8rem;}
+.tips-inner p{color:#FFE4B5;font-size:.93rem;}
+@media print{
+  body>*:not(#cert-screen){display:none!important;}
+  #cert-screen{display:flex!important;position:static!important;overflow:visible!important;padding:0!important;background:#fff!important;}
+  .cert-actions,.staff-lock{display:none!important;}
+}
+</style>
+</head>
+<body>
+<div id="screens">
+
+<!-- TITLE -->
+<div id="title-screen" class="active">
+  <div id="star-container" style="position:absolute;inset:0;overflow:hidden;z-index:1;"></div>
+  <div style="text-align:center;z-index:2;padding:1rem;">
+    <div class="title-glow">UNITY QUEST</div>
+    <div class="title-sub">World 1 — Words &amp; Feelings</div>
+    <div class="session-badge">✦ Session 1 of 6 ✦</div>
+    <br>
+    <button class="btn-primary" onclick="showScreen('char-screen')">Begin Your Quest</button>
+  </div>
+  <button class="staff-lock" onclick="openPin('title-screen')">🔒</button>
+</div>
+
+<!-- CHAR SELECT -->
+<div id="char-screen">
+  <div style="font-family:'Cinzel',serif;font-size:1.7rem;color:#FFD700;margin-bottom:.3rem;text-align:center;">Choose Your Champion</div>
+  <div style="color:#FFB347;font-size:.9rem;margin-bottom:1rem;text-align:center;">Select the creature that feels right for you</div>
+  <div class="char-grid" id="char-grid"></div>
+  <div id="confirm-row" style="display:none;margin:.8rem 0;text-align:center;">
+    <button class="btn-primary" onclick="confirmChar()">Begin with this Champion!</button>
+  </div>
+</div>
+
+<!-- WORLD -->
+<div id="world-screen">
+  <canvas id="three-canvas"></canvas>
+  <div id="hud">
+    <div class="hud-pill gem-count">💎 <span id="gem-num">0</span>/5</div>
+    <div class="hud-pill hud-title">Unity Quest — W1</div>
+    <div class="hud-pill" id="char-hud" style="color:#ccc;font-size:.78rem;"></div>
+  </div>
+  <button id="tips-btn-world" onclick="openTips('world')">?</button>
+  <div id="portal-prompt">✨ Walk into the portal!</div>
+  <div id="move-hint">WASD / Arrow keys · Space to jump</div>
+</div>
+
+<!-- SWOOP -->
+<div id="swoop"><div class="swoop-inner" id="swoop-inner"></div></div>
+
+<!-- ACTIVITY 1 -->
+<div id="act1-screen" class="act-screen">
+  <div class="act-header">Word Sort — How Do Words Land?</div>
+  <div class="act-intro">"Words carry weight. Some feel warm and safe. Some feel heavy or scary. Let's sort some words and see where they land for you."</div>
+  <div style="font-family:'Cinzel',serif;color:#6B35CF;font-size:.95rem;margin-bottom:.4rem;">Click a word, then choose where it lands for you:</div>
+  <div class="word-bank" id="word-bank"></div>
+  <div class="sort-choice-area" id="sort-choice-area"></div>
+  <div class="sort-cols">
+    <div class="sort-col happy"><h4>😊 Happy</h4><div id="col-happy"></div></div>
+    <div class="sort-col sad"><h4>😔 Sad</h4><div id="col-sad"></div></div>
+    <div class="sort-col scared"><h4>😰 Scared</h4><div id="col-scared"></div></div>
+  </div>
+  <div class="act-q">
+    <h3>Was there a word someone said to you that stuck with you? Describe how it felt.</h3>
+    <textarea class="free-text" id="act1-stuck" placeholder="e.g. It felt heavy, or my face went hot..."></textarea>
+  </div>
+  <div class="learned-box">
+    <label>One thing I learned:</label>
+    <textarea class="free-text" id="act1-learned" placeholder="Write your thought here..."></textarea>
+  </div>
+  <div class="submit-row">
+    <div id="act1-warn" style="color:#EF4444;font-size:.83rem;margin-bottom:.5rem;"></div>
+    <button class="btn-primary" onclick="submitAct1()">Submit &amp; Collect Gems</button>
+  </div>
+  <div style="text-align:center;"><button class="btn-secondary tips-float" onclick="openTips('act1')">? Facilitator Tips</button></div>
+</div>
+
+<!-- ACTIVITY 2 -->
+<div id="act2-screen" class="act-screen">
+  <div class="act-header">Say It, Feel It</div>
+  <div class="act-intro">"Some words feel like a punch, even when no one touches you. That feeling is real — and it matters."</div>
+  <div class="act-q">
+    <h3>Why do you think some words feel worse than others?</h3>
+    <div id="act2-q1-opts"></div>
+    <textarea class="free-text" id="act2-q1-free" placeholder="Add your own thoughts..."></textarea>
+  </div>
+  <div class="act-q">
+    <h3>Does it matter who says a word — a friend or a stranger?</h3>
+    <div id="act2-q2-opts"></div>
+    <textarea class="free-text" id="act2-q2-free" placeholder="Add your own thoughts..."></textarea>
+  </div>
+  <div class="act-q">
+    <h3>Can you show or describe what a hurtful word feels like in your body?</h3>
+    <div id="act2-q3-opts"></div>
+    <textarea class="free-text" id="act2-q3-free" placeholder="Add your own thoughts..."></textarea>
+  </div>
+  <div class="learned-box">
+    <label>One thing I learned:</label>
+    <textarea class="free-text" id="act2-learned" placeholder="Write your thought here..."></textarea>
+  </div>
+  <div class="submit-row">
+    <button class="btn-primary" onclick="submitAct2()">Submit &amp; Collect Gems</button>
+  </div>
+  <div style="text-align:center;"><button class="btn-secondary tips-float" onclick="openTips('act2')">? Facilitator Tips</button></div>
+</div>
+
+<!-- ACTIVITY 3 -->
+<div id="act3-screen" class="act-screen">
+  <div class="act-header">Words Are Choices</div>
+  <div class="act-intro">"Every word we say is a choice. Some choices make people feel seen and safe. Some choices cause real harm — even when we don't mean them to."</div>
+  <div class="act-q">
+    <h3>If you said something that hurt someone without meaning to, what would you want to happen?</h3>
+    <div id="act3-q1-opts"></div>
+    <textarea class="free-text" id="act3-q1-free" placeholder="Add your own thoughts..."></textarea>
+  </div>
+  <div class="act-q">
+    <h3>What do you think helps someone feel safe after being hurt by words?</h3>
+    <div id="act3-q2-opts"></div>
+    <textarea class="free-text" id="act3-q2-free" placeholder="Add your own thoughts..."></textarea>
+  </div>
+  <div class="act-q">
+    <h3>What is one thing you could do differently next time you feel angry?</h3>
+    <div id="act3-q3-opts"></div>
+    <textarea class="free-text" id="act3-q3-free" placeholder="Add your own thoughts..."></textarea>
+  </div>
+  <div class="learned-box">
+    <label>One thing I learned:</label>
+    <textarea class="free-text" id="act3-learned" placeholder="Write your thought here..."></textarea>
+  </div>
+  <div class="learned-box">
+    <label style="color:#BE185D;">One thing I want to remember from the whole session today:</label>
+    <textarea class="free-text" id="act3-final" placeholder="Write your thought here..."></textarea>
+  </div>
+  <div class="submit-row">
+    <button class="btn-primary" onclick="submitAct3()">Submit &amp; Open the Shop</button>
+  </div>
+  <div style="text-align:center;"><button class="btn-secondary tips-float" onclick="openTips('act3')">? Facilitator Tips</button></div>
+</div>
+
+<!-- GEM REWARD -->
+<div id="gem-reward">
+  <div class="gem-reward-inner">
+    <div class="gem-spin">💎</div>
+    <div class="gem-reward-title" id="gr-title">+3 Gems!</div>
+    <div class="gem-reward-sub" id="gr-sub">Great thinking!</div>
+    <div style="margin:.8rem 0;color:#FFD700;font-size:1.05rem;font-weight:700;" id="gr-total"></div>
+    <button class="btn-primary" id="gr-btn" onclick="gemNext()">Continue</button>
+  </div>
+</div>
+
+<!-- SHOP -->
+<div id="shop-screen">
+  <div class="shop-title">Build Your Certificate</div>
+  <div style="color:#FFB347;margin-bottom:.5rem;font-size:.9rem;">Spend your gems to customise your reward!</div>
+  <div class="gem-total-disp">💎 You have <span id="shop-gems">0</span> gems</div>
+  <div class="shop-sect">
+    <h3>Choose a Background — 5 gems each (choose 1)</h3>
+    <div class="shop-grid" id="bg-grid"></div>
+  </div>
+  <div class="shop-sect">
+    <h3>Add-ons — 3 gems each (buy as many as you like)</h3>
+    <div class="shop-grid" id="addon-grid"></div>
+  </div>
+  <div class="shop-preview">
+    <div style="font-family:'Cinzel',serif;color:#FFD700;font-size:.95rem;margin-bottom:.5rem;">Certificate Preview</div>
+    <div id="preview-wrap" style="width:100%;max-width:360px;margin:0 auto;"></div>
+  </div>
+  <div style="text-align:center;margin:1rem 0;">
+    <button class="btn-primary" id="gen-cert-btn" onclick="generateCert()" disabled>Generate My Certificate</button>
+  </div>
+</div>
+
+<!-- CERTIFICATE -->
+<div id="cert-screen">
+  <div class="cert-wrap">
+    <div id="cert-svg-wrap"></div>
+    <div style="text-align:center;margin:.8rem 0;">
+      <label style="font-family:'Cinzel',serif;color:#6B35CF;font-weight:700;font-size:.95rem;">Your Name: </label>
+      <input id="cert-name-input" type="text" placeholder="Type your name here"
+        style="font-family:'Cinzel',serif;font-size:1rem;border:2px solid #6B35CF;border-radius:8px;padding:.3rem .8rem;text-align:center;margin-left:.4rem;"
+        oninput="updateCertName()">
+    </div>
+  </div>
+  <div class="cert-actions">
+    <button class="btn-primary" onclick="window.print()">🖨 Print Certificate</button>
+    <button class="btn-secondary" style="color:#6B35CF;border-color:#6B35CF;" onclick="openPin('cert-screen')">🔒 Staff Report</button>
+  </div>
+</div>
+
+<!-- STAFF REPORT -->
+<div id="staff-screen" style="flex-direction:column;align-items:center;overflow-y:auto;padding:2rem;background:#fff;color:#1a1a1a;">
+  <div class="staff-hdr">Unity Quest — Session 1: Words &amp; Feelings — Staff Record</div>
+  <div class="staff-sect">
+    <h3>Session Details</h3>
+    <div class="staff-field"><strong>Character chosen</strong><span id="sr-char"></span></div>
+    <div class="staff-field"><strong>Date &amp; Time</strong><span id="sr-date"></span></div>
+  </div>
+  <div class="staff-sect">
+    <h3>Activity 1 — Word Sort</h3>
+    <table class="staff-table" id="sr-word-table">
+      <thead><tr><th>Word</th><th>Category chosen</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="staff-field" style="margin-top:.6rem;"><strong>Word that stuck</strong><span id="sr-stuck"></span></div>
+    <div class="staff-field"><strong>One thing learned</strong><span id="sr-a1-learned"></span></div>
+  </div>
+  <div class="staff-sect">
+    <h3>Activity 2 — Say It, Feel It</h3>
+    <div class="staff-field"><strong>Q1 — Why some words feel worse</strong><span id="sr-a2q1"></span></div>
+    <div class="staff-field"><strong>Q1 free text</strong><em><span id="sr-a2q1f"></span></em></div>
+    <div class="staff-field"><strong>Q2 — Friend or stranger</strong><span id="sr-a2q2"></span></div>
+    <div class="staff-field"><strong>Q2 free text</strong><em><span id="sr-a2q2f"></span></em></div>
+    <div class="staff-field"><strong>Q3 — Body feeling</strong><span id="sr-a2q3"></span></div>
+    <div class="staff-field"><strong>Q3 free text</strong><em><span id="sr-a2q3f"></span></em></div>
+    <div class="staff-field"><strong>One thing learned</strong><span id="sr-a2-learned"></span></div>
+  </div>
+  <div class="staff-sect">
+    <h3>Activity 3 — Words Are Choices</h3>
+    <div class="staff-field"><strong>Q1 — Hurt without meaning to</strong><span id="sr-a3q1"></span></div>
+    <div class="staff-field"><strong>Q1 free text</strong><em><span id="sr-a3q1f"></span></em></div>
+    <div class="staff-field"><strong>Q2 — Feel safe after hurt</strong><span id="sr-a3q2"></span></div>
+    <div class="staff-field"><strong>Q2 free text</strong><em><span id="sr-a3q2f"></span></em></div>
+    <div class="staff-field"><strong>Q3 — Next time angry</strong><span id="sr-a3q3"></span></div>
+    <div class="staff-field"><strong>Q3 free text</strong><em><span id="sr-a3q3f"></span></em></div>
+    <div class="staff-field"><strong>One thing learned</strong><span id="sr-a3-learned"></span></div>
+    <div class="staff-field"><strong>Final reflection</strong><span id="sr-a3-final"></span></div>
+  </div>
+  <div class="staff-sect">
+    <h3>Engagement Notes (staff use only)</h3>
+    <div style="border:1px solid #ccc;border-radius:8px;padding:1rem;min-height:120px;">
+      <div style="border-bottom:1px solid #e0e0e0;padding:1rem 0;"></div>
+      <div style="border-bottom:1px solid #e0e0e0;padding:1rem 0;"></div>
+      <div style="border-bottom:1px solid #e0e0e0;padding:1rem 0;"></div>
+      <div style="padding:1rem 0;"></div>
+    </div>
+  </div>
+  <div class="staff-sect" style="background:#FFF9C4;border-radius:8px;padding:1rem;border:1px solid #F0C040;">
+    <strong>Confidentiality reminder:</strong> This record is for professional use only. Handle in line with your school's safeguarding and data protection policy. If a student has shared anything that causes concern, follow your usual referral process.
+  </div>
+  <div class="staff-actions">
+    <button class="btn-primary" onclick="window.print()" style="background:linear-gradient(135deg,#222,#555);">🖨 Print Report</button>
+    <button class="btn-secondary" onclick="copyReport()" style="border-color:#333;color:#333;">📋 Copy All Responses</button>
+    <button class="btn-secondary" onclick="goBackFromStaff()" style="border-color:#888;color:#888;">← Back</button>
+  </div>
+</div>
+
+</div><!-- /#screens -->
+
+<!-- PIN MODAL -->
+<div id="pin-modal">
+  <div class="pin-inner">
+    <h3>🔒 Staff Access</h3>
+    <p style="color:#FFB347;font-size:.83rem;margin-bottom:.8rem;">Enter staff PIN to view report</p>
+    <input class="pin-input" id="pin-input" type="password" maxlength="4" placeholder="••••" onkeydown="if(event.key==='Enter')submitPin()">
+    <div class="pin-error" id="pin-error"></div>
+    <div style="display:flex;gap:.6rem;justify-content:center;margin-top:.7rem;">
+      <button class="btn-primary" onclick="submitPin()" style="font-size:.9rem;padding:.5rem 1.4rem;">Enter</button>
+      <button class="btn-secondary" onclick="closePin()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- TIPS MODAL -->
+<div id="tips-modal">
+  <div class="tips-inner">
+    <h3>💡 Facilitator Tips</h3>
+    <p id="tips-text"></p>
+    <div style="text-align:center;margin-top:1rem;">
+      <button class="btn-secondary" onclick="closeTips()" style="border-color:#FFD700;color:#FFD700;">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════
+//  GLOBAL STATE
+// ═══════════════════════════════════════════════
+const S = {
+  char: null,
+  gems: 0,
+  round: 1,
+  wordSort: {},
+  act1Stuck: '', act1Learned: '',
+  act2: {q1:'',q1f:'',q2:'',q2f:'',q3:'',q3f:'',learned:''},
+  act3: {q1:'',q1f:'',q2:'',q2f:'',q3:'',q3f:'',learned:'',final:''},
+  shopBg: null,
+  shopAddons: [],
+  certName: '',
+  dt: new Date().toLocaleString(),
+};
+let prevScreen = 'title-screen';
+
+// ═══════════════════════════════════════════════
+//  SCREEN
+// ═══════════════════════════════════════════════
+function showScreen(id) {
+  prevScreen = document.querySelector('#screens>.active')?.id || 'title-screen';
+  document.querySelectorAll('#screens>div').forEach(d => d.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id !== 'world-screen') document.getElementById(id).scrollTop = 0;
+}
+
+// ═══════════════════════════════════════════════
+//  STARS
+// ═══════════════════════════════════════════════
+(function() {
+  const c = document.getElementById('star-container');
+  for (let i = 0; i < 130; i++) {
+    const s = document.createElement('div');
+    const sz = Math.random() * 3 + 1;
+    s.className = 'star';
+    s.style.cssText = `width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--d:${(Math.random()*3+1).toFixed(1)}s;animation-delay:${(Math.random()*3).toFixed(1)}s;`;
+    c.appendChild(s);
+  }
+})();
+
+// ═══════════════════════════════════════════════
+//  COLOUR UTILS
+// ═══════════════════════════════════════════════
+function hexToRgb(hex) {
+  return [parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];
+}
+function lighten(hex,amt=60){
+  const [r,g,b]=hexToRgb(hex);
+  return `#${[r,g,b].map(v=>Math.min(255,v+amt).toString(16).padStart(2,'0')).join('')}`;
+}
+function darken(hex,amt=50){
+  const [r,g,b]=hexToRgb(hex);
+  return `#${[r,g,b].map(v=>Math.max(0,v-amt).toString(16).padStart(2,'0')).join('')}`;
+}
+
+// ═══════════════════════════════════════════════
+//  CHARACTERS
+// ═══════════════════════════════════════════════
+const CHARS = [
+  {id:'centaur', name:'Centaur', desc:'Strong & Wise',  color:'#6B35CF'},
+  {id:'griffin', name:'Griffin', desc:'Bold & Brave',   color:'#1D4ED8'},
+  {id:'stag',    name:'Stag',    desc:'Swift & Noble',  color:'#166534'},
+  {id:'wolf',    name:'Wolf',    desc:'Loyal & Sharp',  color:'#4B5563'},
+  {id:'mermaid', name:'Mermaid', desc:'Curious & Kind', color:'#0F766E'},
+  {id:'unicorn', name:'Unicorn', desc:'Magic & Pure',   color:'#BE185D'},
+];
+
+function svgChar(id, col) {
+  const lc = lighten(col), dc = darken(col);
+  const M = {
+    centaur:`<ellipse cx="50" cy="72" rx="28" ry="17" fill="${col}"/>
+      <rect x="27" y="85" width="8" height="20" rx="3" fill="${dc}"/><rect x="39" y="87" width="8" height="18" rx="3" fill="${dc}"/>
+      <rect x="54" y="87" width="8" height="18" rx="3" fill="${dc}"/><rect x="65" y="85" width="8" height="20" rx="3" fill="${dc}"/>
+      <rect x="33" y="50" width="18" height="26" rx="6" fill="${col}"/>
+      <circle cx="42" cy="36" r="14" fill="${lc}"/>
+      <circle cx="38" cy="34" r="2.5" fill="#fff"/><circle cx="38" cy="34" r="1.2" fill="#222"/>
+      <circle cx="46" cy="34" r="2.5" fill="#fff"/><circle cx="46" cy="34" r="1.2" fill="#222"/>
+      <ellipse cx="42" cy="24" rx="13" ry="6" fill="${dc}"/>
+      <path d="M76,68 Q87,62 84,78 Q81,88 76,86" stroke="${dc}" stroke-width="4" fill="none" stroke-linecap="round"/>`,
+    griffin:`<ellipse cx="46" cy="72" rx="22" ry="15" fill="${col}"/>
+      <path d="M25,65 Q6,44 11,28 Q19,55 25,65Z" fill="${lc}" opacity=".9"/>
+      <path d="M67,65 Q86,44 81,28 Q73,55 67,65Z" fill="${lc}" opacity=".9"/>
+      <path d="M62,80 Q76,88 73,100" stroke="${dc}" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <rect x="37" y="52" width="15" height="22" rx="7" fill="${col}"/>
+      <ellipse cx="45" cy="43" rx="14" ry="12" fill="${lc}"/>
+      <path d="M38,46 L27,50 L38,52Z" fill="#F59E0B"/>
+      <circle cx="41" cy="40" r="3" fill="#fff"/><circle cx="41" cy="40" r="1.4" fill="#111"/>
+      <circle cx="50" cy="40" r="3" fill="#fff"/><circle cx="50" cy="40" r="1.4" fill="#111"/>
+      <rect x="33" y="83" width="9" height="18" rx="3" fill="${dc}"/>
+      <rect x="46" y="83" width="9" height="18" rx="3" fill="${dc}"/>`,
+    stag:`<ellipse cx="46" cy="73" rx="22" ry="16" fill="${col}"/>
+      <rect x="36" y="52" width="15" height="24" rx="7" fill="${col}"/>
+      <ellipse cx="44" cy="41" rx="14" ry="12" fill="${lc}"/>
+      <path d="M33,33 Q20,17 16,6 M20,18 Q14,13 10,15 M20,18 Q18,11 22,7" stroke="${dc}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <path d="M55,33 Q68,17 72,6 M68,18 Q74,13 78,15 M68,18 Q70,11 66,7" stroke="${dc}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <circle cx="39" cy="40" r="2.5" fill="#fff"/><circle cx="39" cy="40" r="1.2" fill="#333"/>
+      <circle cx="50" cy="40" r="2.5" fill="#fff"/><circle cx="50" cy="40" r="1.2" fill="#333"/>
+      <ellipse cx="44" cy="48" rx="5" ry="3" fill="${dc}"/>
+      <rect x="29" y="85" width="8" height="20" rx="3" fill="${dc}"/>
+      <rect x="41" y="86" width="8" height="19" rx="3" fill="${dc}"/>
+      <rect x="52" y="86" width="8" height="19" rx="3" fill="${dc}"/>
+      <ellipse cx="66" cy="73" rx="5" ry="6" fill="#fff"/>`,
+    wolf:`<ellipse cx="46" cy="73" rx="21" ry="16" fill="${col}"/>
+      <rect x="36" y="53" width="15" height="23" rx="7" fill="${col}"/>
+      <ellipse cx="44" cy="41" rx="15" ry="13" fill="${lc}"/>
+      <polygon points="29,35 24,13 37,29" fill="${col}"/>
+      <polygon points="31,35 26,15 39,30" fill="${lc}" opacity=".5"/>
+      <polygon points="59,35 64,13 51,29" fill="${col}"/>
+      <polygon points="57,35 62,15 49,30" fill="${lc}" opacity=".5"/>
+      <ellipse cx="44" cy="50" rx="8" ry="5" fill="${col}"/>
+      <ellipse cx="44" cy="47" rx="4" ry="3" fill="#333"/>
+      <circle cx="38" cy="40" r="3" fill="#FFD700"/><circle cx="38" cy="40" r="1.4" fill="#111"/>
+      <circle cx="50" cy="40" r="3" fill="#FFD700"/><circle cx="50" cy="40" r="1.4" fill="#111"/>
+      <path d="M64,73 Q80,64 80,77 Q80,90 68,87" stroke="${col}" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <rect x="29" y="85" width="9" height="20" rx="3" fill="${dc}"/>
+      <rect x="41" y="86" width="9" height="19" rx="3" fill="${dc}"/>
+      <rect x="52" y="86" width="9" height="19" rx="3" fill="${dc}"/>`,
+    mermaid:`<path d="M29,90 Q45,112 61,90 L59,67 L31,67Z" fill="${col}"/>
+      <path d="M24,109 Q45,98 66,109 Q45,89 24,109Z" fill="${dc}"/>
+      <rect x="29" y="51" width="31" height="20" rx="8" fill="${lc}"/>
+      <circle cx="45" cy="37" r="16" fill="${lc}"/>
+      <path d="M29,33 Q24,55 27,68" stroke="${dc}" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <path d="M61,33 Q66,55 63,68" stroke="${dc}" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <ellipse cx="45" cy="24" rx="16" ry="9" fill="${dc}"/>
+      <circle cx="40" cy="36" r="3" fill="#fff"/><circle cx="40" cy="36" r="1.4" fill="#111"/>
+      <circle cx="50" cy="36" r="3" fill="#fff"/><circle cx="50" cy="36" r="1.4" fill="#111"/>
+      <ellipse cx="37" cy="77" rx="4" ry="3" fill="${dc}" opacity=".3"/>
+      <ellipse cx="53" cy="77" rx="4" ry="3" fill="${dc}" opacity=".3"/>
+      <ellipse cx="45" cy="85" rx="4" ry="3" fill="${dc}" opacity=".3"/>
+      <path d="M29,60 Q17,58 15,66" stroke="${lc}" stroke-width="7" fill="none" stroke-linecap="round"/>
+      <path d="M61,60 Q73,58 75,66" stroke="${lc}" stroke-width="7" fill="none" stroke-linecap="round"/>`,
+    unicorn:`<ellipse cx="46" cy="73" rx="22" ry="16" fill="${col}"/>
+      <rect x="36" y="52" width="15" height="24" rx="7" fill="${col}"/>
+      <ellipse cx="44" cy="40" rx="15" ry="13" fill="${lc}"/>
+      <polygon points="44,5 39,31 49,31" fill="#FFD700"/>
+      <polygon points="44,5 41,21 44,17 47,21 44,5" fill="#fff" opacity=".4"/>
+      <polygon points="29,31 25,15 35,27" fill="${col}"/>
+      <polygon points="59,31 63,15 53,27" fill="${col}"/>
+      <path d="M35,31 Q27,47 29,63" stroke="#FF69B4" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M37,29 Q28,45 30,61" stroke="#B44FFF" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="39" cy="39" r="3" fill="#fff"/><circle cx="39" cy="39" r="1.4" fill="#9333EA"/>
+      <circle cx="51" cy="39" r="3" fill="#fff"/><circle cx="51" cy="39" r="1.4" fill="#9333EA"/>
+      <text x="61" y="28" font-size="10" fill="#FFD700">✦</text>
+      <path d="M65,74 Q80,67 78,81 Q76,94 70,91" stroke="#FF69B4" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <rect x="29" y="85" width="8" height="20" rx="3" fill="${dc}"/>
+      <rect x="41" y="86" width="8" height="19" rx="3" fill="${dc}"/>
+      <rect x="52" y="86" width="8" height="19" rx="3" fill="${dc}"/>`,
+  };
+  return `<svg viewBox="0 0 90 110" xmlns="http://www.w3.org/2000/svg">${M[id]||M.centaur}</svg>`;
+}
+
+// Build char grid
+(function() {
+  const g = document.getElementById('char-grid');
+  CHARS.forEach(ch => {
+    const d = document.createElement('div');
+    d.className = 'char-card';
+    d.id = 'card-' + ch.id;
+    d.innerHTML = svgChar(ch.id, ch.color) +
+      `<div class="char-name">${ch.name}</div>
+       <div class="char-desc">${ch.desc}</div>
+       <span class="char-dot" style="background:${ch.color};"></span>`;
+    d.onclick = () => selectChar(ch.id);
+    g.appendChild(d);
+  });
+})();
+
+function selectChar(id) {
+  S.char = CHARS.find(c => c.id === id);
+  document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('card-' + id).classList.add('selected');
+  document.getElementById('confirm-row').style.display = 'block';
+}
+
+function confirmChar() {
+  if (!S.char) return;
+  document.getElementById('char-hud').textContent = S.char.name;
+  showScreen('world-screen');
+  initWorld();
+}
+
+// ═══════════════════════════════════════════════
+//  THREE.JS WORLD
+// ═══════════════════════════════════════════════
+let renderer, scene, camera, playerMesh, clock;
+let keys = {}, vel = {x:0,y:0,z:0}, onGround = true;
+let gems3d = [], portal3d = null, portalActive = false, transitioning = false;
+let gemsCollected = 0, worldInited = false;
+let camPos3 = new THREE.Vector3(0,8,12);
+
+const GRAVITY = -0.02, JUMP_V = 0.3;
+
+function initWorld() {
+  if (worldInited) { resetRound(); return; }
+  worldInited = true;
+
+  const canvas = document.getElementById('three-canvas');
+  renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x1A0800);
+  renderer.shadowMap.enabled = true;
+
+  scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x3D1A00, 35, 130);
+
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 200);
+  clock = new THREE.Clock();
+
+  // Lights
+  scene.add(new THREE.AmbientLight(0xFFAA44, 0.65));
+  const sun = new THREE.DirectionalLight(0xFFDD88, 1.2);
+  sun.position.set(12, 25, 10);
+  sun.castShadow = true;
+  scene.add(sun);
+  [new THREE.Vector3(0,5,-20), new THREE.Vector3(-14,3,-45)].forEach((p,i)=>{
+    const pt = new THREE.PointLight(i===0?0xFF6600:0xFFAA00, 1.4, 45);
+    pt.position.copy(p);
+    scene.add(pt);
+  });
+
+  buildGround();
+  buildEnv();
+  playerMesh = buildPlayer(S.char);
+  playerMesh.position.set(0,1,8);
+  scene.add(playerMesh);
+
+  spawnGems();
+  buildPortal();
+
+  window.addEventListener('keydown', e => { keys[e.code] = true; e.code === 'Space' && e.preventDefault(); });
+  window.addEventListener('keyup',   e => { keys[e.code] = false; });
+  window.addEventListener('resize',  () => {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+  });
+
+  requestAnimationFrame(loop3d);
+}
+
+function buildGround() {
+  const geo = new THREE.PlaneGeometry(90, 140);
+  const mat = new THREE.MeshLambertMaterial({color:0x4A2800});
+  const g = new THREE.Mesh(geo, mat);
+  g.rotation.x = -Math.PI/2;
+  g.position.set(0,0,-30);
+  g.receiveShadow = true;
+  scene.add(g);
+}
+
+function buildEnv() {
+  const treeMat  = new THREE.MeshLambertMaterial({color:0x1A5C00});
+  const trunkMat = new THREE.MeshLambertMaterial({color:0x5C3317});
+  const pillarMat= new THREE.MeshLambertMaterial({color:0xFF8C00,emissive:new THREE.Color(0xFF4400),emissiveIntensity:0.3});
+  const archMat  = new THREE.MeshLambertMaterial({color:0x7A6040});
+
+  const treePos = [[-12,0,-10],[10,0,-15],[-8,0,-26],[14,0,-31],[-16,0,-36],[9,0,-43],[-10,0,-51],[18,0,-56],[-20,0,-61],[12,0,-67]];
+  treePos.forEach(([x,,z]) => {
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.7,4,8), trunkMat);
+    trunk.position.set(x,2,z); scene.add(trunk);
+    const t1 = new THREE.Mesh(new THREE.ConeGeometry(3,6,8), treeMat);
+    t1.position.set(x,7,z); scene.add(t1);
+    const t2 = new THREE.Mesh(new THREE.ConeGeometry(2.2,5,8), new THREE.MeshLambertMaterial({color:0x226600}));
+    t2.position.set(x,10,z); scene.add(t2);
+  });
+
+  [[-6,0,-18],[7,0,-23],[-14,0,-46],[9,0,-49]].forEach(([x,,z]) => {
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.6,8,6), pillarMat);
+    p.position.set(x,4,z); scene.add(p);
+  });
+
+  [-30,-50].forEach(z => {
+    [[{x:-5},1.5,5],[{x:5},1.5,5],[{x:0},5.5,13]].forEach(([xo,y,w],i) => {
+      const h = i<2?5:1.5, geo = new THREE.BoxGeometry(w,h,1.5);
+      const m = new THREE.Mesh(geo, archMat);
+      m.position.set(xo.x, y, z); scene.add(m);
+    });
+  });
+
+  // Floating platforms
+  const platMat = new THREE.MeshLambertMaterial({color:0x8B4513});
+  [[6,3,-12],[-5,5,-21],[8,4,-33],[-7,6,-45]].forEach(([x,y,z]) => {
+    const pl = new THREE.Mesh(new THREE.BoxGeometry(5,0.6,5), platMat);
+    pl.position.set(x,y,z); scene.add(pl);
+  });
+}
+
+function buildPlayer(ch) {
+  const g = new THREE.Group();
+  const col = new THREE.Color(ch.color);
+  const lCol = new THREE.Color(lighten(ch.color));
+  const dCol = new THREE.Color(darken(ch.color));
+  const mat  = () => new THREE.MeshLambertMaterial({color:col.clone()});
+  const lmat = () => new THREE.MeshLambertMaterial({color:lCol.clone()});
+  const dmat = () => new THREE.MeshLambertMaterial({color:dCol.clone()});
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.62,1.4,10), mat());
+  body.position.y = 0.7; g.add(body);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.55,12,10), lmat());
+  head.position.y = 1.9; g.add(head);
+
+  const eyeMat = new THREE.MeshBasicMaterial({color:0xffffff});
+  const pupMat = new THREE.MeshBasicMaterial({color:0x111111});
+  [-0.2,0.2].forEach(xo => {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.1,6,6), eyeMat);
+    eye.position.set(xo,1.95,0.48); g.add(eye);
+    const pup = new THREE.Mesh(new THREE.SphereGeometry(0.055,6,6), pupMat);
+    pup.position.set(xo,1.95,0.53); g.add(pup);
+  });
+
+  if (ch.id === 'centaur') {
+    const hbody = new THREE.Mesh(new THREE.CylinderGeometry(0.65,0.7,1.1,10), mat());
+    hbody.position.set(0.7,0.3,0); g.add(hbody);
+    [[-0.55,-0.4,0.3],[-0.2,-0.4,-0.3],[0.2,-0.4,0.3],[0.55,-0.4,-0.3]].forEach(([lx,ly,lz])=>{
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.8,6), dmat());
+      leg.position.set(lx+0.7,ly,lz); g.add(leg);
+    });
+  } else if (ch.id === 'griffin') {
+    const wMat = new THREE.MeshLambertMaterial({color:lCol.clone(),side:THREE.DoubleSide});
+    [-1,1].forEach(s => {
+      const w = new THREE.Mesh(new THREE.PlaneGeometry(1.9,1), wMat);
+      w.position.set(s*1.15,1.1,0); w.rotation.y = s*0.45; g.add(w);
+    });
+  } else if (ch.id === 'stag') {
+    const aMat = dmat();
+    [-0.3,0.3].forEach(xo => {
+      const a1 = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.06,0.8,5), aMat);
+      a1.position.set(xo,2.6,0); a1.rotation.z = xo>0?0.4:-0.4; g.add(a1);
+      const a2 = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.05,0.5,5), aMat);
+      a2.position.set(xo+(xo>0?0.28:-0.28),2.9,0); a2.rotation.z = xo>0?0.85:-0.85; g.add(a2);
+    });
+  } else if (ch.id === 'wolf') {
+    [-0.25,0.25].forEach(xo => {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.18,0.42,4), mat());
+      ear.position.set(xo,2.5,0); g.add(ear);
+    });
+  } else if (ch.id === 'mermaid') {
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.42,1.25,8), mat());
+    tail.position.set(0,-0.6,0); g.add(tail);
+    const fin = new THREE.Mesh(new THREE.CylinderGeometry(0.48,0.05,0.3,8), mat());
+    fin.position.set(0,-1.3,0); g.add(fin);
+  } else if (ch.id === 'unicorn') {
+    const horn = new THREE.Mesh(new THREE.ConeGeometry(0.1,0.65,6),
+      new THREE.MeshLambertMaterial({color:0xFFD700,emissive:new THREE.Color(0xFFAA00),emissiveIntensity:0.6}));
+    horn.position.set(0,2.6,0.32); horn.rotation.x = -0.3; g.add(horn);
+  }
+  return g;
+}
+
+function spawnGems() {
+  gems3d.forEach(g => scene.remove(g));
+  gems3d = [];
+  const gemMat = new THREE.MeshLambertMaterial({color:0xFFD700,emissive:new THREE.Color(0xFFAA00),emissiveIntensity:0.55});
+  const zBase = S.round === 1 ? -5 : S.round === 2 ? -20 : -35;
+  const used = [];
+  for (let i = 0; i < 10; i++) {
+    let x, z, tries = 0;
+    do {
+      x = (Math.random()-0.5)*40;
+      z = zBase - Math.random()*52;
+      tries++;
+    } while (tries < 30 && used.some(p => Math.hypot(p[0]-x,p[1]-z) < 4));
+    used.push([x,z]);
+    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.5), gemMat.clone());
+    gem.position.set(x, 1.6, z);
+    gem.userData.collected = false;
+    gem.userData.baseY = 1.6;
+    gem.userData.phase = Math.random()*Math.PI*2;
+    scene.add(gem); gems3d.push(gem);
+  }
+}
+
+function buildPortal() {
+  if (portal3d) scene.remove(portal3d);
+  portal3d = new THREE.Group();
+  const zP = S.round===1?-38:S.round===2?-50:-62;
+
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(2.5,0.3,12,40),
+    new THREE.MeshLambertMaterial({color:0x666666,emissive:new THREE.Color(0x222222),emissiveIntensity:0.2})
+  );
+  ring.name = 'ring';
+  portal3d.add(ring);
+
+  const inner = new THREE.Mesh(
+    new THREE.CircleGeometry(2.2,32),
+    new THREE.MeshBasicMaterial({color:0x333333,side:THREE.DoubleSide,transparent:true,opacity:0.7})
+  );
+  inner.name = 'inner';
+  portal3d.add(inner);
+
+  portal3d.position.set(0,2.5,zP);
+  portalActive = false;
+  scene.add(portal3d);
+}
+
+function activatePortal() {
+  portalActive = true;
+  const ring = portal3d.getObjectByName('ring');
+  const inner = portal3d.getObjectByName('inner');
+  ring.material.color.setHex(0xFFAA00);
+  ring.material.emissive.setHex(0xFF6600);
+  ring.material.emissiveIntensity = 0.9;
+  inner.material.color.setHex(0xFF8C00);
+  inner.material.opacity = 0.88;
+  document.getElementById('portal-prompt').style.display = 'block';
+}
+
+function resetRound() {
+  gemsCollected = 0;
+  portalActive = false;
+  transitioning = false;
+  document.getElementById('gem-num').textContent = '0';
+  document.getElementById('portal-prompt').style.display = 'none';
+  playerMesh.position.set(0,1,8);
+  vel = {x:0,y:0,z:0};
+  camPos3.set(0,8,12);
+  spawnGems();
+  buildPortal();
+}
+
+let ppulse = 0;
+function loop3d() {
+  requestAnimationFrame(loop3d);
+  if (!document.getElementById('world-screen').classList.contains('active')) {
+    renderer.render(scene,camera); return;
+  }
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (!transitioning) updatePlayer(dt);
+  updateGemsAnim();
+  ppulse += 0.04;
+  if (portal3d && portalActive) {
+    portal3d.rotation.y += 0.022;
+    const sc = 1 + Math.sin(ppulse)*0.07;
+    portal3d.scale.set(sc,sc,1);
+    if (!transitioning) checkPortalEnter();
+  }
+  renderer.render(scene,camera);
+}
+
+function updatePlayer(dt) {
+  const camDir = new THREE.Vector3();
+  camera.getWorldDirection(camDir);
+  camDir.y = 0; camDir.normalize();
+  const right = new THREE.Vector3().crossVectors(camDir, new THREE.Vector3(0,1,0)).normalize();
+
+  let mx = 0, mz = 0;
+  const spd = 5;
+  if (keys['KeyW']||keys['ArrowUp'])    { mx += camDir.x; mz += camDir.z; }
+  if (keys['KeyS']||keys['ArrowDown'])  { mx -= camDir.x; mz -= camDir.z; }
+  if (keys['KeyA']||keys['ArrowLeft'])  { mx -= right.x;  mz -= right.z;  }
+  if (keys['KeyD']||keys['ArrowRight']) { mx += right.x;  mz += right.z;  }
+
+  const len = Math.sqrt(mx*mx+mz*mz);
+  if (len > 0) { mx = mx/len*spd*dt; mz = mz/len*spd*dt; }
+  if ((keys['Space']||keys['ArrowUp']) && onGround) { vel.y = JUMP_V; onGround = false; }
+  if (!onGround) vel.y += GRAVITY;
+
+  playerMesh.position.x = Math.max(-24, Math.min(24, playerMesh.position.x + mx));
+  playerMesh.position.z = Math.max(-75, Math.min(14, playerMesh.position.z + mz));
+  playerMesh.position.y += vel.y;
+
+  if (playerMesh.position.y <= 1) { playerMesh.position.y = 1; vel.y = 0; onGround = true; }
+  if (len > 0) playerMesh.rotation.y = Math.atan2(mx, mz);
+
+  // Camera follow
+  const idealPos = new THREE.Vector3(playerMesh.position.x, playerMesh.position.y+7, playerMesh.position.z+11);
+  camPos3.lerp(idealPos, 0.09);
+  camera.position.copy(camPos3);
+  camera.lookAt(playerMesh.position.x, playerMesh.position.y+1.5, playerMesh.position.z);
+}
+
+function updateGemsAnim() {
+  const t = Date.now()*0.001;
+  gems3d.forEach(g => {
+    if (!g.userData.collected) {
+      g.rotation.y += 0.03;
+      g.position.y = g.userData.baseY + Math.sin(t + g.userData.phase)*0.3;
+      if (playerMesh.position.distanceTo(g.position) < 2.5) collectGem(g);
+    }
+  });
+}
+
+function collectGem(g) {
+  g.userData.collected = true;
+  scene.remove(g);
+  gemsCollected++;
+  S.gems++;
+  document.getElementById('gem-num').textContent = gemsCollected;
+  if (gemsCollected >= 5 && !portalActive) activatePortal();
+}
+
+function checkPortalEnter() {
+  if (!portal3d) return;
+  const dx = playerMesh.position.x - portal3d.position.x;
+  const dz = playerMesh.position.z - portal3d.position.z;
+  if (Math.sqrt(dx*dx+dz*dz) < 3.2) enterPortal();
+}
+
+function enterPortal() {
+  transitioning = true;
+  document.getElementById('portal-prompt').style.display = 'none';
+  swoopTo(() => {
+    if (S.round === 1)      { setupAct1(); showScreen('act1-screen'); }
+    else if (S.round === 2) { setupAct2(); showScreen('act2-screen'); }
+    else                    { setupAct3(); showScreen('act3-screen'); }
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  SWOOP TRANSITION
+// ═══════════════════════════════════════════════
+function swoopTo(cb) {
+  const el = document.getElementById('swoop');
+  const inner = document.getElementById('swoop-inner');
+  el.style.display = 'block';
+  inner.style.transition = 'transform .45s ease-in';
+  inner.style.transform = 'translateX(0)';
+  setTimeout(() => {
+    cb();
+    inner.style.transition = 'transform .4s ease-out';
+    inner.style.transform = 'translateX(110%)';
+    setTimeout(() => {
+      el.style.display = 'none';
+      inner.style.transition = '';
+      inner.style.transform = 'translateX(-110%)';
+    }, 420);
+  }, 430);
+}
+
+// ═══════════════════════════════════════════════
+//  ACTIVITY 1
+// ═══════════════════════════════════════════════
+const WORDS = ['kind','stupid','lovely','rubbish','brilliant','ugly','ignored','seen','left out','included'];
+let selWord = null;
+
+function setupAct1() {
+  selWord = null; S.wordSort = {};
+  const bank = document.getElementById('word-bank');
+  bank.innerHTML = '';
+  WORDS.forEach(w => {
+    const b = document.createElement('button');
+    b.className = 'word-chip';
+    b.id = 'wc-' + w.replace(/\s/g,'_');
+    b.textContent = w;
+    b.onclick = () => pickWord(w);
+    bank.appendChild(b);
+  });
+  ['col-happy','col-sad','col-scared'].forEach(id => document.getElementById(id).innerHTML='');
+  document.getElementById('sort-choice-area').innerHTML='';
+  document.getElementById('act1-stuck').value='';
+  document.getElementById('act1-learned').value='';
+  document.getElementById('act1-warn').textContent='';
+}
+
+function pickWord(w) {
+  selWord = w;
+  const area = document.getElementById('sort-choice-area');
+  area.innerHTML = `<div style="font-weight:700;color:#6B35CF;margin-bottom:.3rem;">Where does "<em>${w}</em>" land for you?</div>
+    <div class="sort-choices">
+      <button class="sort-btn sort-happy" onclick="doSort('happy')">😊 Happy</button>
+      <button class="sort-btn sort-sad"   onclick="doSort('sad')">😔 Sad</button>
+      <button class="sort-btn sort-scared" onclick="doSort('scared')">😰 Scared</button>
+    </div>`;
+}
+
+function doSort(cat) {
+  if (!selWord) return;
+  S.wordSort[selWord] = cat;
+  const chip = document.getElementById('wc-'+selWord.replace(/\s/g,'_'));
+  if (chip) chip.classList.add('sorted');
+  const col = document.getElementById('col-'+cat);
+  const sp = document.createElement('div');
+  sp.className = 'sorted-word'; sp.textContent = selWord; col.appendChild(sp);
+  document.getElementById('sort-choice-area').innerHTML = '';
+  selWord = null;
+}
+
+function submitAct1() {
+  const done = Object.keys(S.wordSort).length;
+  if (done < 10) {
+    document.getElementById('act1-warn').textContent = `Please sort all 10 words first (${10-done} left).`;
+    return;
+  }
+  S.act1Stuck   = document.getElementById('act1-stuck').value;
+  S.act1Learned = document.getElementById('act1-learned').value;
+  showGemReward(3, '+3 Gems!', 'Activity 1 complete — great thinking!', () => {
+    S.round = 2; showScreen('world-screen'); resetRound();
+  }, 'Back to the World');
+}
+
+// ═══════════════════════════════════════════════
+//  ACTIVITY 2
+// ═══════════════════════════════════════════════
+const A2O = {
+  q1:["They remind you of something painful","They come from someone you trust","You can't unhear them","They're about something you can't change","Not sure"],
+  q2:["Yes — it feels worse from a friend","Yes — it feels worse from a stranger","No — it hurts the same either way","It depends on the word","Not sure"],
+  q3:["Like a punch in the stomach","My face goes hot","I freeze and go quiet","I want to disappear","I feel angry"],
+};
+const a2ans = {q1:null,q2:null,q3:null};
+
+function setupAct2() {
+  a2ans.q1=null; a2ans.q2=null; a2ans.q3=null;
+  ['q1','q2','q3'].forEach(q => buildOpts('act2-'+q+'-opts', A2O[q], a2ans, q));
+  ['act2-q1-free','act2-q2-free','act2-q3-free','act2-learned'].forEach(id => document.getElementById(id).value='');
+}
+
+function submitAct2() {
+  S.act2 = {
+    q1:a2ans.q1||'', q1f:document.getElementById('act2-q1-free').value,
+    q2:a2ans.q2||'', q2f:document.getElementById('act2-q2-free').value,
+    q3:a2ans.q3||'', q3f:document.getElementById('act2-q3-free').value,
+    learned:document.getElementById('act2-learned').value,
+  };
+  showGemReward(3, '+3 Gems!', 'Activity 2 complete — well done!', () => {
+    S.round = 3; showScreen('world-screen'); resetRound();
+  }, 'Back to the World');
+}
+
+// ═══════════════════════════════════════════════
+//  ACTIVITY 3
+// ═══════════════════════════════════════════════
+const A3O = {
+  q1:["I'd want to apologise","I'd want to understand why it hurt","I'd want them to tell me","I wouldn't know what to do","I'd feel bad but not know how to fix it"],
+  q2:["A proper apology","People checking in on them","Time","Someone standing up for them","Being believed"],
+  q3:["Walk away","Take a breath","Tell a trusted adult","Count to ten","Ask for help"],
+};
+const a3ans = {q1:null,q2:null,q3:null};
+
+function setupAct3() {
+  a3ans.q1=null; a3ans.q2=null; a3ans.q3=null;
+  ['q1','q2','q3'].forEach(q => buildOpts('act3-'+q+'-opts', A3O[q], a3ans, q));
+  ['act3-q1-free','act3-q2-free','act3-q3-free','act3-learned','act3-final'].forEach(id => document.getElementById(id).value='');
+}
+
+function submitAct3() {
+  S.act3 = {
+    q1:a3ans.q1||'', q1f:document.getElementById('act3-q1-free').value,
+    q2:a3ans.q2||'', q2f:document.getElementById('act3-q2-free').value,
+    q3:a3ans.q3||'', q3f:document.getElementById('act3-q3-free').value,
+    learned:document.getElementById('act3-learned').value,
+    final:document.getElementById('act3-final').value,
+  };
+  showGemReward(5, '+5 Gems!', 'Session complete — outstanding thinking!', () => {
+    showScreen('shop-screen'); setupShop();
+  }, 'Open the Shop');
+}
+
+function buildOpts(containerId, opts, ansObj, key) {
+  const div = document.getElementById(containerId);
+  div.innerHTML = '';
+  opts.forEach(opt => {
+    const b = document.createElement('button');
+    b.className = 'opt-btn';
+    b.textContent = opt;
+    b.onclick = () => {
+      div.querySelectorAll('.opt-btn').forEach(x => x.classList.remove('selected'));
+      b.classList.add('selected');
+      ansObj[key] = opt;
+    };
+    div.appendChild(b);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  GEM REWARD
+// ═══════════════════════════════════════════════
+let _gemCb = null;
+
+function showGemReward(amt, title, sub, cb, btnLabel) {
+  _gemCb = cb;
+  document.getElementById('gr-title').textContent = title;
+  document.getElementById('gr-sub').textContent = sub;
+  document.getElementById('gr-total').textContent = `Total gems: 💎 ${S.gems}`;
+  document.getElementById('gr-btn').textContent = btnLabel || 'Continue';
+  document.getElementById('gem-reward').classList.add('active');
+}
+
+function gemNext() {
+  document.getElementById('gem-reward').classList.remove('active');
+  if (_gemCb) { _gemCb(); _gemCb = null; }
+}
+
+// ═══════════════════════════════════════════════
+//  SHOP
+// ═══════════════════════════════════════════════
+const BGLIST = [
+  {id:'festival', name:'Festival of Cultures', icon:'🏮'},
+  {id:'rainbow',  name:'Rainbow Park',         icon:'🌈'},
+  {id:'landmarks',name:'World Landmarks',       icon:'🏛️'},
+  {id:'garden',   name:'Community Garden',      icon:'🌻'},
+  {id:'hall',     name:'Celebration Hall',      icon:'✨'},
+];
+const ADDONLIST = [
+  {id:'rflag',   name:'Rainbow Flag Banner', icon:'🏳️‍🌈'},
+  {id:'hands',   name:'Friendship Hands',    icon:'🤝'},
+  {id:'lanterns',name:'Lanterns',            icon:'🏮'},
+  {id:'butterf', name:'Butterflies',         icon:'🦋'},
+  {id:'stars',   name:'Stars & Sparkles',    icon:'⭐'},
+  {id:'flowers', name:'Flowers of the World',icon:'🌸'},
+  {id:'notes',   name:'Musical Notes',       icon:'🎵'},
+  {id:'friend',  name:'A Second Creature',   icon:'🦄'},
+];
+let shopBg = null, shopAddons = [];
+
+function setupShop() {
+  shopBg = null; shopAddons = [];
+  document.getElementById('shop-gems').textContent = S.gems;
+  document.getElementById('gen-cert-btn').disabled = true;
+
+  const bgG = document.getElementById('bg-grid');
+  bgG.innerHTML = '';
+  BGLIST.forEach(bg => {
+    const d = document.createElement('div');
+    d.className = 'shop-item'; d.id = 'si-'+bg.id;
+    d.innerHTML = `<div style="font-size:1.8rem;">${bg.icon}</div><div class="shop-item-name">${bg.name}</div><div class="shop-item-cost">💎 5 gems</div>`;
+    d.onclick = () => buyBg(bg);
+    bgG.appendChild(d);
+  });
+
+  const adG = document.getElementById('addon-grid');
+  adG.innerHTML = '';
+  ADDONLIST.forEach(a => {
+    const d = document.createElement('div');
+    d.className = 'shop-item'; d.id = 'si-'+a.id;
+    d.innerHTML = `<div style="font-size:1.8rem;">${a.icon}</div><div class="shop-item-name">${a.name}</div><div class="shop-item-cost">💎 3 gems</div>`;
+    d.onclick = () => buyAddon(a);
+    adG.appendChild(d);
+  });
+  renderPreview();
+}
+
+function buyBg(bg) {
+  if (shopBg && shopBg.id === bg.id) {
+    S.gems += 5; shopBg = null;
+    document.getElementById('si-'+bg.id).classList.remove('purchased','sel-bg');
+    document.getElementById('gen-cert-btn').disabled = true;
+  } else {
+    if (S.gems < 5) { alert('Not enough gems! Collect more in the world.'); return; }
+    if (shopBg) { S.gems += 5; document.getElementById('si-'+shopBg.id).classList.remove('purchased','sel-bg'); }
+    S.gems -= 5; shopBg = bg;
+    document.getElementById('si-'+bg.id).classList.add('purchased','sel-bg');
+    document.getElementById('gen-cert-btn').disabled = false;
+  }
+  document.getElementById('shop-gems').textContent = S.gems;
+  renderPreview();
+}
+
+function buyAddon(a) {
+  const idx = shopAddons.findIndex(x => x.id === a.id);
+  if (idx > -1) {
+    S.gems += 3; shopAddons.splice(idx,1);
+    document.getElementById('si-'+a.id).classList.remove('purchased');
+  } else {
+    if (S.gems < 3) { alert('Not enough gems!'); return; }
+    S.gems -= 3; shopAddons.push(a);
+    document.getElementById('si-'+a.id).classList.add('purchased');
+  }
+  document.getElementById('shop-gems').textContent = S.gems;
+  renderPreview();
+}
+
+function renderPreview() {
+  const wrap = document.getElementById('preview-wrap');
+  if (!shopBg) {
+    wrap.innerHTML = '<svg width="340" height="200" style="background:#222;border-radius:8px;"><text x="170" y="108" text-anchor="middle" fill="#888" font-family="Nunito,sans-serif" font-size="14">Select a background to preview</text></svg>';
+    return;
+  }
+  wrap.innerHTML = certSVG(shopBg.id, shopAddons.map(a=>a.id), S.char, S.certName||'', true);
+}
+
+// ═══════════════════════════════════════════════
+//  CERTIFICATE SVG
+// ═══════════════════════════════════════════════
+function certSVG(bgId, addonIds, ch, name, preview=false) {
+  const W = preview?340:720, H = preview?202:510;
+
+  const BG = {
+    festival:`<rect width="${W}" height="${H}" fill="#14003D"/>
+      <rect x="0" y="${H*.6}" width="${W}" height="${H*.4}" fill="#6B0000" opacity=".7"/>
+      <rect x="0" y="${H*.58}" width="${W}" height="${H*.025}" fill="#FFD700" opacity=".7"/>
+      ${[...Array(7)].map((_,i)=>`<ellipse cx="${W*(.07+i*.14)}" cy="${H*.68}" rx="${W*.035}" ry="${H*.07}" fill="${['#FF6B00','#FFD700','#FF1493','#00CED1','#FF6B00','#FFD700','#FF1493'][i]}" opacity=".7"/>`).join('')}
+      <text x="${W*.5}" y="${H*.12}" text-anchor="middle" font-size="${W*.04}" fill="#FFD700" opacity=".55">🏮 🪔 🎊 🏮 🪔 🎊 🏮</text>`,
+    rainbow:`<rect width="${W}" height="${H}" fill="#87CEEB"/>
+      <rect x="0" y="${H*.62}" width="${W}" height="${H*.38}" fill="#7DC86E"/>
+      ${['#FF0000','#FF7700','#FFFF00','#00AA00','#0000FF','#8B00FF'].map((c,i)=>`
+        <path d="M${W*(.08+i*.015)},${H*.72} A${W*(.42-i*.02)},${H*(.6-i*.04)} 0 0,1 ${W*(.92-i*.015)},${H*.72}" fill="none" stroke="${c}" stroke-width="${W*.011}" opacity=".85"/>`).join('')}
+      <circle cx="${W*.18}" cy="${H*.18}" r="${W*.065}" fill="#fff" opacity=".9"/>
+      <circle cx="${W*.75}" cy="${H*.13}" r="${W*.085}" fill="#fff" opacity=".9"/>`,
+    landmarks:`<rect width="${W}" height="${H}" fill="#1a3a5c"/>
+      <rect x="0" y="${H*.57}" width="${W}" height="${H*.43}" fill="#3a2718"/>
+      <polygon points="${W*.2},${H*.57} ${W*.17},${H*.75} ${W*.23},${H*.75}" fill="#aaa"/>
+      <rect x="${W*.175}" y="${H*.63}" width="${W*.052}" height="${W*.013}" fill="#888"/>
+      <rect x="${W*.175}" y="${H*.7}" width="${W*.052}" height="${W*.013}" fill="#888"/>
+      <rect x="${W*.35}" y="${H*.41}" width="${W*.06}" height="${H*.18}" fill="#9aad7f"/>
+      <rect x="${W*.344}" y="${H*.38}" width="${W*.072}" height="${W*.042}" fill="#7a8d5f"/>
+      <polygon points="${W*.344},${H*.38} ${W*.38},${H*.34} ${W*.416},${H*.38}" fill="#6a7d4f"/>
+      <rect x="${W*.55}" y="${H*.49}" width="${W*.1}" height="${H*.1}" fill="#e8d8c0"/>
+      <ellipse cx="${W*.6}" cy="${H*.49}" rx="${W*.03}" ry="${H*.065}" fill="#c8b8a0"/>
+      <rect x="${W*.533}" y="${H*.52}" width="${W*.013}" height="${H*.08}" fill="#c8b8a0"/>
+      <rect x="${W*.654}" y="${H*.52}" width="${W*.013}" height="${H*.08}" fill="#c8b8a0"/>`,
+    garden:`<rect width="${W}" height="${H}" fill="#7EC8E3"/>
+      <rect x="0" y="${H*.57}" width="${W}" height="${H*.43}" fill="#5a9e3a"/>
+      ${[[.05,.62,.2,.1],[.3,.58,.2,.1],[.55,.62,.2,.1]].map(([bx,by,bw,bh])=>`
+        <rect x="${W*bx}" y="${H*by}" width="${W*bw}" height="${H*bh}" rx="4" fill="#8B4513"/>`).join('')}
+      <text x="${W*.15}" y="${H*.64}" text-anchor="middle" font-size="${W*.06}">🌿</text>
+      <text x="${W*.4}" y="${H*.61}" text-anchor="middle" font-size="${W*.06}">🥕</text>
+      <text x="${W*.65}" y="${H*.64}" text-anchor="middle" font-size="${W*.06}">🌿</text>
+      <line x1="${W*.8}" y1="${H*.57}" x2="${W*.8}" y2="${H*.78}" stroke="#5a9e3a" stroke-width="3"/>
+      <circle cx="${W*.8}" cy="${H*.53}" r="${W*.036}" fill="#FFD700"/>
+      <circle cx="${W*.8}" cy="${H*.53}" r="${W*.02}" fill="#8B4513"/>
+      <rect x="${W*.3}" y="${H*.72}" width="${W*.15}" height="${W*.022}" rx="2" fill="#8B6914"/>`,
+    hall:`<rect width="${W}" height="${H}" fill="#1A0050"/>
+      <path d="M0,${H*.3} Q${W*.5},${H*.06} ${W},${H*.3}" fill="#2a0070"/>
+      <ellipse cx="${W*.5}" cy="${H*.17}" rx="${W*.06}" ry="${H*.045}" fill="#FFD700" opacity=".55"/>
+      <text x="${W*.5}" y="${H*.22}" text-anchor="middle" font-size="${W*.03}" fill="#FFD700">✦ ✦ ✦</text>
+      <rect x="${W*.05}" y="${H*.3}" width="${W*.04}" height="${H*.5}" fill="#4a2a80"/>
+      <rect x="${W*.91}" y="${H*.3}" width="${W*.04}" height="${H*.5}" fill="#4a2a80"/>
+      <rect x="${W*.2}" y="${H*.33}" width="${W*.03}" height="${H*.5}" fill="#3a1a60"/>
+      <rect x="${W*.77}" y="${H*.33}" width="${W*.03}" height="${H*.5}" fill="#3a1a60"/>
+      <rect x="0" y="${H*.73}" width="${W}" height="${H*.27}" fill="#2a1050"/>
+      <line x1="0" y1="${H*.73}" x2="${W}" y2="${H*.73}" stroke="#FFD700" stroke-width="2" opacity=".4"/>
+      <text x="${W*.5}" y="${H*.1}" text-anchor="middle" font-size="${W*.06}" fill="#FFD700" opacity=".65">✦</text>`,
+  };
+
+  const AD = {
+    rflag:   `<rect x="${W*.02}" y="${H*.06}" width="${W*.012}" height="${H*.32}" fill="#8B6914"/><text x="${W*.017}" y="${H*.15}" font-size="${W*.055}">🏳️‍🌈</text>`,
+    hands:   `<text x="${W*.03}" y="${H*.93}" font-size="${W*.048}">🤝</text><text x="${W*.88}" y="${H*.93}" font-size="${W*.048}">🤝</text>`,
+    lanterns:`<text x="${W*.04}" y="${H*.33}" font-size="${W*.045}">🏮</text><text x="${W*.88}" y="${H*.33}" font-size="${W*.045}">🏮</text>`,
+    butterf: `<text x="${W*.06}" y="${H*.55}" font-size="${W*.04}">🦋</text><text x="${W*.84}" y="${H*.48}" font-size="${W*.04}">🦋</text><text x="${W*.46}" y="${H*.24}" font-size="${W*.03}">🦋</text>`,
+    stars:   `<text x="${W*.07}" y="${H*.21}" font-size="${W*.035}">⭐</text><text x="${W*.86}" y="${H*.21}" font-size="${W*.035}">⭐</text><text x="${W*.5}" y="${H*.09}" font-size="${W*.05}">✨</text><text x="${W*.14}" y="${H*.52}" font-size="${W*.025}">✦</text><text x="${W*.83}" y="${H*.52}" font-size="${W*.025}">✦</text>`,
+    flowers: `<text x="${W*.03}" y="${H*.73}" font-size="${W*.045}">🌸</text><text x="${W*.88}" y="${H*.73}" font-size="${W*.045}">🌺</text><text x="${W*.47}" y="${H*.95}" font-size="${W*.04}">🌼</text>`,
+    notes:   `<text x="${W*.05}" y="${H*.41}" font-size="${W*.04}">🎵</text><text x="${W*.87}" y="${H*.41}" font-size="${W*.04}">🎶</text>`,
+    friend:  `<text x="${W*.83}" y="${H*.8}" font-size="${W*.055}">🦄</text>`,
+  };
+
+  const charArt = certCharSVG(ch, W, H, preview);
+  const addOns = addonIds.map(id => AD[id]||'').join('');
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="display:block;border-radius:8px;">
+    ${BG[bgId]||BG.festival}
+    <rect x="${W*.018}" y="${H*.018}" width="${W*.964}" height="${H*.964}" fill="none" stroke="#FFD700" stroke-width="${W*.007}" rx="8" opacity=".85"/>
+    <rect x="${W*.024}" y="${H*.024}" width="${W*.952}" height="${H*.952}" fill="none" stroke="#FF8C00" stroke-width="${W*.003}" rx="6" opacity=".5"/>
+    ${addOns}
+    ${charArt}
+    <rect x="${W*.08}" y="${H*.025}" width="${W*.84}" height="${H*.24}" rx="8" fill="rgba(0,0,0,0.58)"/>
+    <text x="${W*.5}" y="${H*.1}" text-anchor="middle" font-family="Cinzel,serif" font-weight="900" font-size="${W*.052}" fill="#FFD700">Unity Quest — World 1 Complete!</text>
+    <text x="${W*.5}" y="${H*.17}" text-anchor="middle" font-family="Cinzel,serif" font-size="${W*.03}" fill="#FFB347">Words &amp; Feelings</text>
+    <text x="${W*.5}" y="${H*.27}" text-anchor="middle" font-size="${W*.065}">⭐</text>
+    <rect x="${W*.12}" y="${H*.78}" width="${W*.76}" height="${H*.1}" rx="7" fill="rgba(0,0,0,0.62)"/>
+    <text id="cname-svg" x="${W*.5}" y="${H*.847}" text-anchor="middle" font-family="Cinzel,serif" font-size="${W*.038}" fill="#FFD700">${name||'Your Name Here'}</text>
+    <rect x="0" y="${H*.91}" width="${W}" height="${H*.09}" fill="rgba(0,0,0,0.52)"/>
+    <text x="${W*.5}" y="${H*.948}" text-anchor="middle" font-family="Nunito,sans-serif" font-size="${W*.022}" fill="#FFE4B5">I completed this session and I am proud of my thinking.</text>
+    <text x="${W*.5}" y="${H*.978}" text-anchor="middle" font-family="Nunito,sans-serif" font-size="${W*.017}" fill="rgba(255,228,181,.6)">${new Date().toLocaleDateString()}</text>
+  </svg>`;
+}
+
+function certCharSVG(ch, W, H, preview) {
+  if (!ch) return '';
+  const cx = W*.5, cy = H*.62, sz = preview?34:74;
+  const c=ch.color, lc=lighten(c), dc=darken(c);
+  const extras = {
+    unicorn:`<polygon points="${cx},${cy-sz*1.07} ${cx-sz*.09},${cy-sz*.88} ${cx+sz*.09},${cy-sz*.88}" fill="#FFD700"/>`,
+    griffin:`<ellipse cx="${cx-sz*.56}" cy="${cy-sz*.05}" rx="${sz*.28}" ry="${sz*.14}" fill="${lc}" opacity=".85"/><ellipse cx="${cx+sz*.56}" cy="${cy-sz*.05}" rx="${sz*.28}" ry="${sz*.14}" fill="${lc}" opacity=".85"/>`,
+    stag:`<path d="M${cx-sz*.1},${cy-sz*.96} Q${cx-sz*.42},${cy-sz*1.32} ${cx-sz*.52},${cy-sz*1.52}" stroke="${dc}" stroke-width="${sz*.065}" fill="none" stroke-linecap="round"/><path d="M${cx+sz*.1},${cy-sz*.96} Q${cx+sz*.42},${cy-sz*1.32} ${cx+sz*.52},${cy-sz*1.52}" stroke="${dc}" stroke-width="${sz*.065}" fill="none" stroke-linecap="round"/>`,
+    wolf:`<polygon points="${cx-sz*.2},${cy-sz*.96} ${cx-sz*.36},${cy-sz*1.26} ${cx-sz*.05},${cy-sz*.99}" fill="${c}"/><polygon points="${cx+sz*.2},${cy-sz*.96} ${cx+sz*.36},${cy-sz*1.26} ${cx+sz*.05},${cy-sz*.99}" fill="${c}"/>`,
+    mermaid:`<ellipse cx="${cx}" cy="${cy+sz*.72}" rx="${sz*.3}" ry="${sz*.26}" fill="${c}"/>`,
+    centaur:`<ellipse cx="${cx+sz*.52}" cy="${cy+sz*.22}" rx="${sz*.32}" ry="${sz*.21}" fill="${c}"/>`,
+  };
+  return `<g>
+    <circle cx="${cx}" cy="${cy}" r="${sz*1.35}" fill="${c}" opacity=".16"/>
+    <ellipse cx="${cx}" cy="${cy}" rx="${sz*.46}" ry="${sz*.57}" fill="${c}"/>
+    <line x1="${cx-sz*.4}" y1="${cy-sz*.1}" x2="${cx-sz*.72}" y2="${cy-sz*.62}" stroke="${lc}" stroke-width="${sz*.14}" stroke-linecap="round"/>
+    <line x1="${cx+sz*.4}" y1="${cy-sz*.1}" x2="${cx+sz*.72}" y2="${cy-sz*.62}" stroke="${lc}" stroke-width="${sz*.14}" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy-sz*.72}" r="${sz*.36}" fill="${lc}"/>
+    <ellipse cx="${cx-sz*.13}" cy="${cy-sz*.74}" rx="${sz*.075}" ry="${sz*.055}" fill="#333"/>
+    <ellipse cx="${cx+sz*.13}" cy="${cy-sz*.74}" rx="${sz*.075}" ry="${sz*.055}" fill="#333"/>
+    <path d="M${cx-sz*.16},${cy-sz*.6} Q${cx},${cy-sz*.5} ${cx+sz*.16},${cy-sz*.6}" stroke="#333" stroke-width="${sz*.04}" fill="none" stroke-linecap="round"/>
+    <line x1="${cx-sz*.2}" y1="${cy+sz*.52}" x2="${cx-sz*.26}" y2="${cy+sz*.88}" stroke="${dc}" stroke-width="${sz*.13}" stroke-linecap="round"/>
+    <line x1="${cx+sz*.2}" y1="${cy+sz*.52}" x2="${cx+sz*.26}" y2="${cy+sz*.88}" stroke="${dc}" stroke-width="${sz*.13}" stroke-linecap="round"/>
+    ${extras[ch.id]||''}
+  </g>`;
+}
+
+function generateCert() {
+  if (!shopBg) return;
+  S.shopBg = shopBg; S.shopAddons = shopAddons;
+  const svg = certSVG(shopBg.id, shopAddons.map(a=>a.id), S.char, S.certName||'', false);
+  document.getElementById('cert-svg-wrap').innerHTML = svg;
+  showScreen('cert-screen');
+}
+
+function updateCertName() {
+  S.certName = document.getElementById('cert-name-input').value;
+  const el = document.getElementById('cname-svg');
+  if (el) el.textContent = S.certName || 'Your Name Here';
+}
+
+// ═══════════════════════════════════════════════
+//  STAFF REPORT
+// ═══════════════════════════════════════════════
+function populateStaff() {
+  document.getElementById('sr-char').textContent = S.char ? `${S.char.name} (${S.char.desc})` : '—';
+  document.getElementById('sr-date').textContent = S.dt;
+  const tbody = document.querySelector('#sr-word-table tbody');
+  tbody.innerHTML = '';
+  WORDS.forEach(w => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${w}</td><td>${S.wordSort[w]||'—'}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('sr-stuck').textContent      = S.act1Stuck   || '—';
+  document.getElementById('sr-a1-learned').textContent = S.act1Learned || '—';
+  document.getElementById('sr-a2q1').textContent       = S.act2.q1     || '—';
+  document.getElementById('sr-a2q1f').textContent      = S.act2.q1f    || '—';
+  document.getElementById('sr-a2q2').textContent       = S.act2.q2     || '—';
+  document.getElementById('sr-a2q2f').textContent      = S.act2.q2f    || '—';
+  document.getElementById('sr-a2q3').textContent       = S.act2.q3     || '—';
+  document.getElementById('sr-a2q3f').textContent      = S.act2.q3f    || '—';
+  document.getElementById('sr-a2-learned').textContent = S.act2.learned|| '—';
+  document.getElementById('sr-a3q1').textContent       = S.act3.q1     || '—';
+  document.getElementById('sr-a3q1f').textContent      = S.act3.q1f    || '—';
+  document.getElementById('sr-a3q2').textContent       = S.act3.q2     || '—';
+  document.getElementById('sr-a3q2f').textContent      = S.act3.q2f    || '—';
+  document.getElementById('sr-a3q3').textContent       = S.act3.q3     || '—';
+  document.getElementById('sr-a3q3f').textContent      = S.act3.q3f    || '—';
+  document.getElementById('sr-a3-learned').textContent = S.act3.learned|| '—';
+  document.getElementById('sr-a3-final').textContent   = S.act3.final  || '—';
+}
+
+function copyReport() {
+  const c = S.char ? `${S.char.name} (${S.char.desc})` : '—';
+  let t = `UNITY QUEST — SESSION 1: WORDS & FEELINGS — STAFF RECORD\nCharacter: ${c}\nDate: ${S.dt}\n\n`;
+  t += `ACTIVITY 1 — WORD SORT\n`;
+  WORDS.forEach(w => t += `  ${w}: ${S.wordSort[w]||'—'}\n`);
+  t += `Word that stuck: ${S.act1Stuck||'—'}\nLearned: ${S.act1Learned||'—'}\n\n`;
+  t += `ACTIVITY 2 — SAY IT, FEEL IT\nQ1: ${S.act2.q1||'—'}\n  Free text: ${S.act2.q1f||'—'}\n`;
+  t += `Q2: ${S.act2.q2||'—'}\n  Free text: ${S.act2.q2f||'—'}\n`;
+  t += `Q3: ${S.act2.q3||'—'}\n  Free text: ${S.act2.q3f||'—'}\n`;
+  t += `Learned: ${S.act2.learned||'—'}\n\n`;
+  t += `ACTIVITY 3 — WORDS ARE CHOICES\nQ1: ${S.act3.q1||'—'}\n  Free text: ${S.act3.q1f||'—'}\n`;
+  t += `Q2: ${S.act3.q2||'—'}\n  Free text: ${S.act3.q2f||'—'}\n`;
+  t += `Q3: ${S.act3.q3||'—'}\n  Free text: ${S.act3.q3f||'—'}\n`;
+  t += `Learned: ${S.act3.learned||'—'}\nFinal reflection: ${S.act3.final||'—'}\n`;
+  navigator.clipboard.writeText(t).then(()=>alert('Copied!')).catch(()=>alert('Please select and copy manually.'));
+}
+
+function goBackFromStaff() { showScreen(prevScreen||'cert-screen'); }
+
+// ═══════════════════════════════════════════════
+//  PIN MODAL
+// ═══════════════════════════════════════════════
+let _pinOrigin = '';
+function openPin(origin) {
+  _pinOrigin = origin || prevScreen;
+  document.getElementById('pin-input').value = '';
+  document.getElementById('pin-error').textContent = '';
+  document.getElementById('pin-modal').classList.add('active');
+  setTimeout(()=>document.getElementById('pin-input').focus(),100);
+}
+function closePin() { document.getElementById('pin-modal').classList.remove('active'); }
+function submitPin() {
+  const v = document.getElementById('pin-input').value;
+  if (v === '1234') {
+    closePin();
+    populateStaff();
+    showScreen('staff-screen');
+  } else {
+    document.getElementById('pin-error').textContent = 'Incorrect PIN. Try again.';
+    document.getElementById('pin-input').value = '';
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  TIPS MODAL
+// ═══════════════════════════════════════════════
+const TIPS = {
+  world: "Let the student explore freely. No need to prompt. If they seem reluctant, say: 'Just have a wander and collect the gems — there's no rush.'",
+  act1:  "Watch for words the student assigns quickly — these may carry personal meaning. Don't comment on specific choices. If they go quiet, say: 'Take your time — there's no wrong answer here.'",
+  act2:  "If a student becomes emotional, slow down and say: 'That's okay — you don't have to share anything you don't want to.'",
+  act3:  "This activity is about equipping, not blaming. If the student says 'my family says stuff like this', say: 'I'm not asking you to argue with your family — I'm just asking what YOU think, in here, with me.'",
+};
+function openTips(ctx) {
+  document.getElementById('tips-text').textContent = TIPS[ctx]||'';
+  document.getElementById('tips-modal').classList.add('active');
+}
+function closeTips() { document.getElementById('tips-modal').classList.remove('active'); }
+</script>
+</body>
+</html>
