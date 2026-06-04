@@ -136,9 +136,16 @@ body{font-family:'Nunito',sans-serif;overflow:hidden;background:#0d0020;color:#f
 .tips-inner h3{font-family:'Cinzel',serif;color:#FFD700;margin-bottom:.8rem;}
 .tips-inner p{color:#FFE4B5;font-size:.93rem;}
 @media print{
-  body>*:not(#cert-screen){display:none!important;}
-  #cert-screen{display:flex!important;position:static!important;overflow:visible!important;padding:0!important;background:#fff!important;}
-  .cert-actions,.staff-lock{display:none!important;}
+  body{overflow:visible!important;}
+  body>*{display:none!important;}
+  body.print-cert>#screens{display:block!important;}
+  body.print-cert>#screens>div{display:none!important;}
+  body.print-cert>#screens>#cert-screen{display:flex!important;flex-direction:column;align-items:center;background:#fff!important;position:static!important;overflow:visible!important;padding:1rem!important;}
+  body.print-cert .cert-actions{display:none!important;}
+  body.print-staff>#screens{display:block!important;}
+  body.print-staff>#screens>div{display:none!important;}
+  body.print-staff>#screens>#staff-screen{display:flex!important;flex-direction:column;align-items:center;background:#fff!important;position:static!important;overflow:visible!important;padding:2rem!important;}
+  body.print-staff .staff-actions{display:none!important;}
 }
 </style>
 </head>
@@ -318,7 +325,7 @@ body{font-family:'Nunito',sans-serif;overflow:hidden;background:#0d0020;color:#f
     </div>
   </div>
   <div class="cert-actions">
-    <button class="btn-primary" onclick="window.print()">🖨 Print Certificate</button>
+    <button class="btn-primary" onclick="printCert()">🖨 Print Certificate</button>
     <button class="btn-secondary" style="color:#6B35CF;border-color:#6B35CF;" onclick="openPin('cert-screen')">🔒 Staff Report</button>
   </div>
 </div>
@@ -374,7 +381,7 @@ body{font-family:'Nunito',sans-serif;overflow:hidden;background:#0d0020;color:#f
     <strong>Confidentiality reminder:</strong> This record is for professional use only. Handle in line with your school's safeguarding and data protection policy. If a student has shared anything that causes concern, follow your usual referral process.
   </div>
   <div class="staff-actions">
-    <button class="btn-primary" onclick="window.print()" style="background:linear-gradient(135deg,#222,#555);">🖨 Print Report</button>
+    <button class="btn-primary" onclick="printStaff()" style="background:linear-gradient(135deg,#222,#555);">🖨 Print Report</button>
     <button class="btn-secondary" onclick="copyReport()" style="border-color:#333;color:#333;">📋 Copy All Responses</button>
     <button class="btn-secondary" onclick="goBackFromStaff()" style="border-color:#888;color:#888;">← Back</button>
   </div>
@@ -860,7 +867,7 @@ function updatePlayer(dt) {
   const right = new THREE.Vector3().crossVectors(camDir, new THREE.Vector3(0,1,0)).normalize();
 
   let mx = 0, mz = 0;
-  const spd = 5;
+  const spd = 9;
   if (keys['KeyW']||keys['ArrowUp'])    { mx += camDir.x; mz += camDir.z; }
   if (keys['KeyS']||keys['ArrowDown'])  { mx -= camDir.x; mz -= camDir.z; }
   if (keys['KeyA']||keys['ArrowLeft'])  { mx -= right.x;  mz -= right.z;  }
@@ -1400,6 +1407,21 @@ function openTips(ctx) {
   document.getElementById('tips-modal').classList.add('active');
 }
 function closeTips() { document.getElementById('tips-modal').classList.remove('active'); }
+
+function printCert() {
+  document.body.classList.add('print-cert');
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => document.body.classList.remove('print-cert'), 500);
+  }, 80);
+}
+function printStaff() {
+  document.body.classList.add('print-staff');
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => document.body.classList.remove('print-staff'), 500);
+  }, 80);
+}
 </script>
 </body>
 </html>
