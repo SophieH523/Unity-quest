@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Unity Quest</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+:root{
+  --deep:#020b14; --forest:#021608; --glass:rgba(2,14,28,0.88);
+  --teal:#4ecdc4; --amber:#ff9900; --purple:#9b44ff; --pink:#ff77cc; --gold:#ffd700;
+  --text:#d8f4ff; --sub:#7ab8cc; --border:rgba(78,205,196,0.3);
+  --glow-t:0 0 20px rgba(78,205,196,0.45); --glow-a:0 0 20px rgba(255,153,0,0.45);
+  --glow-p:0 0 20px rgba(155,68,255,0.45); --glow-g:0 0 20px rgba(255,215,0,0.5);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--deep);overflow:hidden;font-family:'Nunito',sans-serif;color:var(--text)}
+#canvas{position:fixed;top:0;left:0;width:100vw;height:100vh;display:block}
+#ui{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:10}
+.screen{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;pointer-events:all;opacity:0;
+  transition:opacity 0.5s ease;overflow-y:auto;padding:20px 16px}
+.screen.active{opacity:1}
+.screen::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 20%,rgba(78,205,196,0.07) 0%,transparent 70%);
+  pointer-events:none}
+
+/* TITLE */
+#screen-title{background:radial-gradient(ellipse at 50% 30%,#041828 0%,#020b14 70%)}
+.title-logo{font-family:'Cinzel',serif;font-size:clamp(2.5rem,8vw,5rem);font-weight:900;
+  color:var(--teal);letter-spacing:0.08em;text-shadow:0 0 30px var(--teal),0 0 60px rgba(78,205,196,0.5),0 0 100px rgba(78,205,196,0.2);
+  margin-bottom:6px;text-align:center}
+.title-sub{font-family:'Cinzel',serif;font-size:clamp(0.8rem,2.5vw,1.1rem);color:var(--sub);
+  letter-spacing:0.25em;text-transform:uppercase;margin-bottom:40px;text-align:center}
+.title-wisp{position:absolute;pointer-events:none;border-radius:50%;
+  animation:wispFloat 6s ease-in-out infinite;opacity:0.6}
+
+/* CHARACTER SELECT */
+#char-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
+  max-width:660px;width:100%;margin:20px 0}
+.char-card{background:var(--glass);border:1.5px solid rgba(78,205,196,0.2);border-radius:16px;
+  padding:18px 12px;text-align:center;cursor:pointer;transition:all 0.3s;
+  backdrop-filter:blur(10px)}
+.char-card:hover{border-color:var(--teal);box-shadow:var(--glow-t);transform:translateY(-3px)}
+.char-card.selected{border-color:var(--teal);box-shadow:0 0 30px rgba(78,205,196,0.6);
+  background:rgba(78,205,196,0.12)}
+.char-emoji{font-size:2.5rem;margin-bottom:8px}
+.char-card h3{font-family:'Cinzel',serif;font-size:0.9rem;color:var(--teal);margin-bottom:4px}
+.char-card p{font-size:0.72rem;color:var(--sub);line-height:1.3}
+
+/* WORLD MAP */
+#world-nodes-container{display:flex;flex-direction:column;align-items:center;gap:10px;
+  width:100%;max-width:520px;margin:16px 0 20px}
+
+/* HUD */
+#hud{position:fixed;top:0;left:0;width:100%;height:52px;display:none;align-items:center;
+  padding:0 16px;gap:10px;background:linear-gradient(180deg,rgba(2,11,20,0.75) 0%,transparent 100%);
+  backdrop-filter:blur(4px);z-index:20;pointer-events:all}
+#hud-gems{display:flex;align-items:center;gap:6px;background:var(--glass);
+  border:1px solid rgba(78,205,196,0.25);border-radius:20px;padding:5px 14px;
+  font-family:'Cinzel',serif;font-size:0.95rem;color:var(--teal);
+  box-shadow:0 0 12px rgba(78,205,196,0.2)}
+#hud-world-name{flex:1;font-family:'Cinzel',serif;font-size:0.8rem;color:var(--sub);
+  letter-spacing:0.1em;text-align:center}
+.hud-btn{background:var(--glass);border:1px solid var(--border);border-radius:20px;
+  padding:6px 14px;color:var(--text);font-family:'Nunito',sans-serif;font-size:0.8rem;
+  cursor:pointer;transition:all 0.2s;white-space:nowrap}
+.hud-btn:hover{border-color:var(--teal);box-shadow:var(--glow-t)}
+
+/* ACTIVITY OVERLAY */
+#activity-overlay{position:fixed;inset:0;background:rgba(1,8,18,0.92);
+  backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;
+  z-index:30;pointer-events:all;overflow-y:auto;padding:20px}
+#activity-card{background:linear-gradient(160deg,rgba(3,18,36,0.98),rgba(2,10,22,0.98));
+  border:1.5px solid rgba(78,205,196,0.35);border-radius:24px;
+  box-shadow:0 0 60px rgba(78,205,196,0.12),0 0 120px rgba(78,205,196,0.05),inset 0 1px 0 rgba(78,205,196,0.1);
+  padding:36px 32px 28px;max-width:680px;width:100%;position:relative}
+.progress-dots{display:flex;gap:8px;justify-content:center;margin-bottom:24px}
+.progress-dot{width:10px;height:10px;border-radius:50%;background:rgba(78,205,196,0.2);
+  border:1px solid rgba(78,205,196,0.3);transition:all 0.3s}
+.progress-dot.active{background:var(--teal);box-shadow:0 0 10px var(--teal)}
+.progress-dot.done{background:rgba(78,205,196,0.5)}
+.activity-title{font-family:'Cinzel',serif;font-size:1.3rem;color:var(--teal);
+  margin-bottom:14px;text-shadow:0 0 20px rgba(78,205,196,0.4)}
+.activity-instruction{color:var(--sub);font-size:0.92rem;line-height:1.65;
+  margin-bottom:18px;white-space:pre-line;padding:14px 18px;
+  background:rgba(78,205,196,0.05);border-left:2px solid rgba(78,205,196,0.3);
+  border-radius:0 8px 8px 0}
+.activity-prompt{color:var(--text);font-size:1rem;font-weight:700;margin-bottom:10px}
+#activity-nav{display:flex;justify-content:space-between;align-items:center;margin-top:20px;gap:12px}
+
+/* WORD SORT */
+.word-sort{width:100%}
+.word-bank{margin-bottom:14px}
+.word-bank-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.word-pill{padding:8px 16px;border-radius:20px;background:rgba(78,205,196,0.1);
+  border:1.5px solid rgba(78,205,196,0.3);color:var(--text);cursor:pointer;
+  font-size:0.9rem;transition:all 0.2s;user-select:none}
+.word-pill:hover{border-color:var(--teal);box-shadow:var(--glow-t)}
+.word-pill.selected{background:rgba(78,205,196,0.25);border-color:var(--teal);box-shadow:var(--glow-t)}
+.sort-columns{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.sort-column{min-height:100px;background:rgba(2,14,28,0.7);border:1.5px solid rgba(78,205,196,0.2);
+  border-radius:12px;padding:10px;cursor:pointer;transition:border-color 0.2s}
+.sort-column:hover{border-color:var(--teal)}
+.sort-col-header{font-family:'Cinzel',serif;font-size:0.85rem;color:var(--teal);
+  text-align:center;margin-bottom:8px;padding-bottom:6px;
+  border-bottom:1px solid rgba(78,205,196,0.2)}
+
+/* MULTIPLE CHOICE */
+.mc-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.mc-option{background:rgba(2,14,28,0.8);border:1.5px solid rgba(78,205,196,0.2);
+  border-radius:12px;padding:12px 14px;color:var(--text);cursor:pointer;text-align:left;
+  font-family:'Nunito',sans-serif;font-size:0.9rem;transition:all 0.25s;line-height:1.4}
+.mc-option:hover:not(:disabled){border-color:var(--teal);box-shadow:var(--glow-t);
+  background:rgba(78,205,196,0.08)}
+.mc-option.correct{border-color:#00e676;background:rgba(0,230,118,0.1);
+  box-shadow:0 0 16px rgba(0,230,118,0.3)}
+.mc-option.incorrect{border-color:#ff5252;background:rgba(255,82,82,0.08)}
+.mc-option:disabled{opacity:0.6;cursor:default}
+
+/* VIDEO PANEL */
+.video-panel{background:rgba(78,205,196,0.05);border:1.5px solid rgba(78,205,196,0.25);
+  border-radius:16px;padding:20px;text-align:center}
+.video-info{display:flex;align-items:center;gap:14px;margin-bottom:16px;text-align:left}
+.video-icon{font-size:2.5rem;flex-shrink:0}
+
+/* COMMITMENT CARD */
+.commitment-card{width:100%;display:flex;flex-direction:column;gap:14px}
+.commitment-field{display:flex;flex-direction:column;gap:6px}
+
+/* INPUTS */
+.game-input,.game-textarea{background:rgba(2,14,28,0.9);border:1.5px solid rgba(78,205,196,0.25);
+  border-radius:10px;padding:12px 16px;color:var(--text);font-family:'Nunito',sans-serif;
+  font-size:0.95rem;width:100%;resize:vertical;transition:border-color 0.2s}
+.game-input:focus,.game-textarea:focus{outline:none;border-color:var(--teal);
+  box-shadow:0 0 12px rgba(78,205,196,0.25)}
+
+/* BUTTONS */
+.btn{padding:12px 24px;border-radius:24px;border:none;cursor:pointer;font-family:'Cinzel',serif;
+  font-size:0.9rem;font-weight:600;letter-spacing:0.05em;transition:all 0.25s;white-space:nowrap}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,#1a6060,#0d4a4a);border:1.5px solid var(--teal);
+  color:var(--teal);box-shadow:0 0 16px rgba(78,205,196,0.2)}
+.btn-primary:hover:not(:disabled){box-shadow:0 0 28px rgba(78,205,196,0.5);
+  background:linear-gradient(135deg,#226868,#1a5555);transform:translateY(-1px)}
+.btn-secondary{background:linear-gradient(135deg,#3a2000,#261600);border:1.5px solid var(--amber);
+  color:var(--amber);box-shadow:0 0 16px rgba(255,153,0,0.2)}
+.btn-secondary:hover:not(:disabled){box-shadow:0 0 28px rgba(255,153,0,0.5);transform:translateY(-1px)}
+.btn-gold{background:linear-gradient(135deg,#3a2c00,#2a1f00);border:1.5px solid var(--gold);
+  color:var(--gold);box-shadow:0 0 16px rgba(255,215,0,0.2)}
+.btn-gold:hover:not(:disabled){box-shadow:0 0 28px rgba(255,215,0,0.5);transform:translateY(-1px)}
+.btn-ghost{background:var(--glass);border:1.5px solid rgba(78,205,196,0.2);color:var(--sub)}
+.btn-ghost:hover{border-color:var(--teal);color:var(--text)}
+
+/* SHOP */
+#screen-shop{background:radial-gradient(ellipse at 50% 20%,rgba(155,68,255,0.08),transparent 60%),var(--deep)}
+#shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:12px;width:100%;max-width:700px;margin:16px 0}
+.shop-item-card{background:var(--glass);border:1.5px solid rgba(155,68,255,0.2);border-radius:16px;
+  padding:16px;text-align:center;transition:all 0.25s;backdrop-filter:blur(8px)}
+.shop-item-card:hover{border-color:var(--purple);box-shadow:var(--glow-p);transform:translateY(-2px)}
+.shop-item-card.owned{border-color:rgba(0,230,118,0.4);box-shadow:0 0 16px rgba(0,230,118,0.15)}
+.shop-emoji{font-size:2.2rem;margin-bottom:8px}
+.shop-item-card h3{font-family:'Cinzel',serif;font-size:0.82rem;color:var(--purple);margin-bottom:4px}
+.shop-item-card p{font-size:0.72rem;color:var(--sub);margin-bottom:8px;line-height:1.3}
+.shop-cost{color:var(--gold);font-weight:700;font-size:0.9rem;margin-bottom:8px}
+#gems-available{font-family:'Cinzel',serif;font-size:1rem;color:var(--teal);margin-bottom:4px;
+  text-shadow:0 0 12px rgba(78,205,196,0.4)}
+.item-chip{display:inline-block;background:rgba(0,230,118,0.1);border:1px solid rgba(0,230,118,0.3);
+  border-radius:12px;padding:4px 10px;font-size:0.8rem;margin:3px;color:#00e676}
+
+/* STAFF */
+#screen-staff{background:radial-gradient(ellipse at 50% 20%,rgba(255,82,82,0.06),transparent 60%),
+  linear-gradient(180deg,#030810,var(--deep))}
+#staff-login,#staff-content{width:100%;max-width:500px}
+#staff-login{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+#staff-content{display:none;flex-direction:column;gap:16px}
+#staff-sessions{display:flex;flex-direction:column;gap:16px;width:100%;max-width:700px}
+.session-summary{background:var(--glass);border:1.5px solid rgba(255,82,82,0.2);
+  border-radius:16px;padding:20px;backdrop-filter:blur(8px)}
+.session-header{display:flex;justify-content:space-between;align-items:flex-start;
+  gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.session-meta-line{font-size:0.8rem;color:var(--sub);margin-top:4px}
+.session-actions{display:flex;gap:8px;flex-shrink:0}
+.btn-sm{padding:7px 14px;font-size:0.78rem}
+.session-responses{display:flex;flex-direction:column;gap:8px}
+.response-item{background:rgba(255,82,82,0.05);border-left:2px solid rgba(255,82,82,0.3);
+  padding:10px 14px;border-radius:0 8px 8px 0;font-size:0.85rem}
+.response-item strong{color:var(--amber);display:block;margin-bottom:4px}
+.response-item em{color:var(--text);font-style:normal}
+
+/* FACILITATOR MODAL */
+#facilitator-modal{position:fixed;inset:0;background:rgba(1,8,18,0.88);backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;z-index:50;pointer-events:all;padding:20px}
+.modal-card{background:linear-gradient(160deg,rgba(3,18,36,0.98),rgba(2,10,22,0.98));
+  border:1.5px solid rgba(255,153,0,0.35);border-radius:20px;
+  box-shadow:0 0 40px rgba(255,153,0,0.15);padding:28px;max-width:520px;width:100%;
+  display:flex;flex-direction:column;gap:14px}
+.modal-card h3{font-family:'Cinzel',serif;color:var(--amber);font-size:1.1rem;
+  text-shadow:0 0 16px rgba(255,153,0,0.4)}
+#facilitator-tip-text{color:var(--text);font-size:0.92rem;line-height:1.7;
+  white-space:pre-line;background:rgba(255,153,0,0.05);border-left:2px solid rgba(255,153,0,0.3);
+  padding:12px 16px;border-radius:0 8px 8px 0}
+
+/* COMMUNITY */
+#screen-community{background:radial-gradient(ellipse at 50% 30%,rgba(0,230,118,0.07),transparent 60%),var(--deep)}
+#community-canvas{width:100%;max-width:700px;height:300px;border-radius:16px;
+  border:1.5px solid rgba(0,230,118,0.2);box-shadow:0 0 30px rgba(0,230,118,0.1)}
+#community-items-list{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;
+  max-width:700px;width:100%;margin-top:12px}
+
+/* TOUCH CONTROLS */
+#touch-controls{position:fixed;bottom:0;left:0;right:0;height:160px;
+  display:none;justify-content:space-between;align-items:flex-end;padding:20px;
+  pointer-events:all;z-index:25}
+#joystick-zone{width:110px;height:110px;background:rgba(78,205,196,0.08);
+  border:2px solid rgba(78,205,196,0.25);border-radius:50%;touch-action:none}
+#btn-jump-touch{width:70px;height:70px;border-radius:50%;background:linear-gradient(135deg,#1a6060,#0d4a4a);
+  border:2px solid var(--teal);color:var(--teal);font-family:'Cinzel',serif;
+  font-size:0.75rem;cursor:pointer;box-shadow:var(--glow-t)}
+
+/* SECTION HEADINGS IN SCREENS */
+.screen h2{font-family:'Cinzel',serif;font-size:clamp(1.2rem,4vw,1.8rem);color:var(--teal);
+  text-shadow:0 0 20px rgba(78,205,196,0.4);margin-bottom:6px;text-align:center;letter-spacing:0.05em}
+.screen p.hint{color:var(--sub);font-size:0.88rem;text-align:center;margin-bottom:16px}
+
+/* PORTAL PROMPT */
+#portal-prompt{position:fixed;bottom:170px;left:50%;transform:translateX(-50%);
+  background:rgba(2,14,28,0.85);color:var(--teal);padding:10px 22px;border-radius:12px;
+  font-family:'Nunito',sans-serif;font-size:1rem;font-weight:700;pointer-events:none;
+  display:none;text-align:center;border:1.5px solid rgba(78,205,196,0.4);
+  box-shadow:var(--glow-t);z-index:20;backdrop-filter:blur(6px)}
+
+/* ANIMATIONS */
+@keyframes wispFloat{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-18px) scale(1.05)}}
+@keyframes fadeUp{0%{opacity:1;transform:translate(-50%,-50%)}100%{opacity:0;transform:translate(-50%,-220%)}}
+@keyframes oriPulse{0%,100%{opacity:0.5}50%{opacity:1}}
+@keyframes spiralIn{from{transform:scale(0.8) rotate(-5deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
+.screen.active #activity-card{animation:spiralIn 0.4s ease}
+
+/* SCROLLBAR */
+*::-webkit-scrollbar{width:5px}
+*::-webkit-scrollbar-track{background:rgba(2,14,28,0.8)}
+*::-webkit-scrollbar-thumb{background:rgba(78,205,196,0.3);border-radius:3px}
+
+/* GEM POPUP */
+.gem-popup{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(2,14,28,0.9);color:var(--teal);padding:10px 22px;border-radius:20px;
+  font-family:'Cinzel',serif;font-size:1.2rem;pointer-events:none;z-index:50;
+  border:1.5px solid var(--teal);box-shadow:var(--glow-t);animation:fadeUp 1.3s ease forwards}
+
+@media(max-width:600px){
+  #char-grid{grid-template-columns:repeat(2,1fr)}
+  .mc-options{grid-template-columns:1fr}
+  .sort-columns{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="ui">
+
+  <!-- TITLE SCREEN -->
+  <div id="screen-title" class="screen">
+    <div class="title-logo">UNITY QUEST</div>
+    <div class="title-sub">A Journey of Understanding</div>
+    <div style="display:flex;flex-direction:column;gap:12px;width:100%;max-width:280px;margin-top:8px">
+      <button id="btn-start" class="btn btn-primary" style="font-size:1rem;padding:14px 32px">
+        ✦ Begin Your Quest
+      </button>
+      <button id="btn-staff" class="btn btn-ghost">
+        Staff Portal
+      </button>
+    </div>
+    <p style="position:absolute;bottom:16px;font-size:0.7rem;color:rgba(122,184,204,0.4);
+      letter-spacing:0.15em;font-family:Cinzel,serif">UNITY QUEST · KS2 PROGRAMME</p>
+  </div>
+
+  <!-- CHARACTER SELECT -->
+  <div id="screen-charselect" class="screen">
+    <h2>Choose Your Spirit</h2>
+    <p class="hint">Your guide through every world</p>
+    <div id="char-grid"></div>
+    <button id="btn-charconfirm" class="btn btn-primary" disabled>Choose this spirit →</button>
+  </div>
+
+  <!-- NAME ENTRY -->
+  <div id="screen-nameentry" class="screen">
+    <h2>What's your name?</h2>
+    <p class="hint">This will appear on your session records</p>
+    <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:12px;margin-top:8px">
+      <input id="player-name-input" class="game-input" placeholder="Your name..." maxlength="30">
+      <button id="btn-nameconfirm" class="btn btn-primary">Let's go ✦</button>
+    </div>
+  </div>
+
+  <!-- WORLD MAP -->
+  <div id="screen-worldmap" class="screen">
+    <h2>Your Quest</h2>
+    <div id="gem-display" style="font-family:Cinzel,serif;font-size:1rem;color:var(--teal);
+      margin-bottom:4px;text-shadow:0 0 12px rgba(78,205,196,0.4)">💎 0 gems</div>
+    <div id="world-nodes-container"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+      <button id="btn-shop" class="btn btn-secondary">✦ Community Shop</button>
+      <button id="btn-community" class="btn btn-ghost">My Community</button>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="hud-gems">💎 0</div>
+    <div id="hud-world-name">Unity Quest</div>
+    <button id="btn-facilitator" class="hud-btn">? Tips</button>
+    <button id="btn-pause" class="hud-btn">⏸ Menu</button>
+  </div>
+
+  <!-- ACTIVITY OVERLAY -->
+  <div id="activity-overlay">
+    <div id="activity-card">
+      <div class="progress-dots" id="activity-progress-dots"></div>
+      <div id="activity-content"></div>
+      <div id="activity-nav"></div>
+    </div>
+  </div>
+
+  <!-- SHOP -->
+  <div id="screen-shop" class="screen">
+    <h2>Community Shop</h2>
+    <div id="gems-available">💎 0 gems available</div>
+    <div id="shop-grid"></div>
+    <button id="btn-back-shop" class="btn btn-ghost" style="margin-top:4px">← Back</button>
+  </div>
+
+  <!-- COMMUNITY WORLD -->
+  <div id="screen-community" class="screen">
+    <h2>My Community</h2>
+    <canvas id="community-canvas"></canvas>
+    <div id="community-items-list"></div>
+    <button id="btn-back-community" class="btn btn-ghost" style="margin-top:12px">← Back</button>
+  </div>
+
+  <!-- STAFF PORTAL -->
+  <div id="screen-staff" class="screen">
+    <div id="staff-login">
+      <h2 style="color:var(--amber);text-shadow:0 0 20px rgba(255,153,0,0.4)">Staff Portal</h2>
+      <p class="hint">Enter your 4-digit facilitator PIN</p>
+      <input type="password" maxlength="4" id="staff-pin-input" class="game-input"
+        placeholder="PIN" style="text-align:center;letter-spacing:0.3em;max-width:160px">
+      <button id="btn-staff-login" class="btn btn-secondary">Unlock</button>
+    </div>
+    <div id="staff-content" style="width:100%;max-width:720px">
+      <h2 style="color:var(--amber);text-shadow:0 0 20px rgba(255,153,0,0.4)">Session Records</h2>
+      <div id="staff-sessions"></div>
+      <button id="btn-staff-back" class="btn btn-ghost" style="margin-top:8px;align-self:flex-start">← Exit Portal</button>
+    </div>
+  </div>
+
+  <!-- FACILITATOR TIPS MODAL -->
+  <div id="facilitator-modal">
+    <div class="modal-card">
+      <h3>✦ Facilitator Tips</h3>
+      <div id="facilitator-tip-text">No tip for this step.</div>
+      <button id="btn-close-facilitator" class="btn btn-secondary" style="align-self:flex-end">Close</button>
+    </div>
+  </div>
+
+  <!-- TOUCH CONTROLS -->
+  <div id="touch-controls">
+    <div id="joystick-zone"></div>
+    <button id="btn-jump-touch">JUMP</button>
+  </div>
+
+  <div id="portal-prompt">Press <b>E</b> or tap <b>TALK</b> to begin activities</div>
+
+</div><!-- /#ui -->
+<script>
+// ============================================================
+//  CONFIG
+// ============================================================
+const STAFF_PIN='1234';
+const CHARACTERS=[
+  {id:'centaur', name:'Centaur', emoji:'🐴', desc:'Strong and wise — half human, half horse.', bodyColor:0xd4a050, accentColor:0x8a6020, glowColor:0xffcc44},
+  {id:'griffin', name:'Griffin', emoji:'🦅', desc:'Bold and soaring — part eagle, part lion.', bodyColor:0xe0aa20, accentColor:0x8a6000, glowColor:0xffdd00},
+  {id:'stag',    name:'Stag',    emoji:'🦌', desc:'Calm and sure — lord of the ancient forest.', bodyColor:0x8a7050, accentColor:0x5a4020, glowColor:0x88cc44},
+  {id:'wolf',    name:'Wolf',    emoji:'🐺', desc:'Loyal and fierce — spirit of the wild pack.', bodyColor:0x5a7090, accentColor:0x304050, glowColor:0x44aaff},
+  {id:'mermaid', name:'Mermaid', emoji:'🧜', desc:'Curious and free — soul of the deep waters.', bodyColor:0x20b2aa, accentColor:0x006868, glowColor:0x00ffcc},
+  {id:'unicorn', name:'Unicorn', emoji:'🦄', desc:'Rare and radiant — touched by every light.', bodyColor:0xeec0e0, accentColor:0xcc80bb, glowColor:0xff88ee},
+];
+const WORLDS=[
+  {id:0,name:'Culture & Diversity',           sky:0x020d10,ground:0x041208,fog:0x020d10,gemColor:0x4ecdc4,lightColor:0x4ecdc4},
+  {id:1,name:'Words & Feelings',              sky:0x0d0500,ground:0x1a0800,fog:0x0d0500,gemColor:0xff7700,lightColor:0xff9900},
+  {id:2,name:'What Is Race?',                 sky:0x030014,ground:0x080020,fog:0x030014,gemColor:0xaa44ff,lightColor:0x9b44ff},
+  {id:3,name:'Where Do These Words Come From?',sky:0x050300,ground:0x100800,fog:0x050300,gemColor:0xff9900,lightColor:0xffaa22},
+  {id:4,name:'Walking in Someone Else\'s Shoes',sky:0x0a0520,ground:0x150a2a,fog:0x0a0520,gemColor:0xff77cc,lightColor:0xff88dd},
+  {id:5,name:'Our Community & Our Choices',   sky:0x010d04,ground:0x041208,fog:0x010d04,gemColor:0x00ff88,lightColor:0x00cc66},
+  {id:6,name:'What I Know Now',               sky:0x020010,ground:0x060018,fog:0x020010,gemColor:0xffd700,lightColor:0xffcc00},
+];
+const SHOP_ITEMS=[
+  {id:'rainbow_tree',   name:'Rainbow Tree',    cost:15, desc:'A spirit tree blazing with prismatic light.',      emoji:'🌈🌳'},
+  {id:'mural_wall',     name:'Mural Wall',       cost:20, desc:'An ancient wall covered in glowing story-art.',   emoji:'🎨'},
+  {id:'community_hall', name:'Community Hall',   cost:35, desc:'A hall of light where every soul is welcome.',    emoji:'🏛️'},
+  {id:'rainbow_bridge', name:'Rainbow Bridge',   cost:25, desc:'A bridge of light connecting all spirits.',       emoji:'🌉'},
+  {id:'festival_tent',  name:'Festival Tent',    cost:30, desc:'A place to celebrate every culture\'s light.',    emoji:'🎪'},
+  {id:'world_landmark', name:'World Landmarks',  cost:50, desc:'Glowing echoes of places from across the world.', emoji:'🗺️'},
+];
+
+// ============================================================
+//  ACTIVITIES
+// ============================================================
+const ACTIVITIES={
+  0:[
+    {type:'video',title:'Watch: Diversity and Differences',
+     instruction:"Watch this short video together. While you watch, notice two things:\nWhat looks familiar — a bit like your life — and what looks different.",
+     videoUrl:'https://www.bbc.co.uk/bitesize/articles/z9dpn9q',
+     videoTitle:'BBC Bitesize KS2 — Diversity and Differences',videoDuration:'2 min 40 sec',
+     facilitatorTip:"Watch alongside the student. Afterwards, choose 1–2 prompts:\n• 'What did you notice that looked the same as your life?'\n• 'What looked different?'\n• 'Was there anything that surprised you?'\nWatch for genuine curiosity vs defensive responses."},
+    {type:'freetext',title:'My Culture Splash',
+     instruction:"Culture is the stuff passed down through families — food, music, celebrations, language, stories. Here's something important: everyone has a culture. You have one. I have one. Culture isn't something only some people have — it belongs to all of us.",
+     prompt:"Write some things from YOUR culture. Think about food you eat, music you love, celebrations your family has, words only your family uses, things that feel like 'just yours'.",
+     placeholder:"Write your ideas here...",
+     facilitatorTip:"If the student says they don't have a culture, prompt:\n'Culture can be really small things — the food you always have on a birthday, a word your family uses, something you do at a celebration. What's something that feels like just... yours?'"},
+    {type:'multiplechoice',title:'What Is Diversity?',
+     instruction:"When lots of different people — with different backgrounds, experiences, and cultures — all exist together in the same place, that's what we call diversity. It's about all the ways people can be different from each other.",
+     question:"Which of these best describes what diversity means?",
+     options:["Only having people from different countries","All the different ways people can be different from each other","People who look the same as each other","Just people with different skin colours"],
+     correctIndex:1,
+     feedback:["Not quite — diversity is about much more than just countries!","Exactly right! Diversity includes all the ways people can be different — culture, background, experience, and more.","Not quite — diversity is about differences, not similarities!","Skin colour is part of it, but diversity includes culture, language, experiences and so much more!"],
+     facilitatorTip:"This is a discussion starter, not a test. Even a 'wrong' answer is an opportunity — ask 'Tell me more about that.'\n\nKey message: Our world is made of thousands of different cultures — and every single one matters. Yours included."},
+  ],
+  1:[
+    {type:'wordsort',title:'Word Feelings',
+     instruction:"Some words make us feel happy. Some make us feel sad. Some make us feel scared. Sort these words into the columns — where do YOU think each word belongs?",
+     words:['kind','stupid','lovely','rubbish','brilliant','ugly','ignored','seen','left out','included'],
+     columns:['HAPPY 😊','SAD 😔','SCARED 😨'],
+     facilitatorTip:"After 6–8 words, pause and ask:\n'Is there a word someone has said to you that stuck with you? You don't have to say what it was — just what column it would go in.'\nWatch for words the student hesitates over."},
+    {type:'freetext',title:'Words That Stick',
+     instruction:"Some words feel like a punch, even when no one touches you. That feeling is real — and it matters.",
+     prompt:"Has a word ever stuck with you — something someone said that you remembered for a long time? You don't have to say what the word was. Can you describe how it felt in your body when you heard it?",
+     placeholder:"You might describe your chest, stomach, or face... write whatever comes to mind.",
+     facilitatorTip:"Don't push for the word itself — the feeling matters more.\n\nIf they share something difficult:\n'That sounds really hard. Thank you for trusting me with that.'\n\nDo NOT reference the reason they are doing this programme."},
+    {type:'multiplechoice',title:'Why Do Words Hurt?',
+     instruction:"We've been exploring how different words can feel completely different — even if they're just sounds.",
+     question:"Why do you think some words hurt more than others?",
+     options:["Because they're longer words","Because they attack something about us we can't change or didn't choose","Because everyone hates the same words","Words can't really hurt — it's just words"],
+     correctIndex:1,
+     feedback:["Interesting — but a very short word can hurt just as much. Think about why...","You've got it. Words that target something we can't change — how we look, our family, who we are — cut much deeper.","Actually, we all have different words that affect us depending on our experiences.","Words really can hurt — the feeling is real even without a bruise. That's why they matter so much."],
+     facilitatorTip:"There's no wrong answer. Use any response as a jumping-off point.\n\nKey message: 'Some words feel like a punch, even when no one touches you. That feeling is real — and it matters.'"},
+  ],
+  2:[
+    {type:'freetext',title:'What Makes You, You?',
+     instruction:"Everyone is made up of lots of different things. Let's think about all the things that make you who you are.",
+     prompt:"Write five things that make you who you are. You could include: your name, something you love doing, your family, where you live, how you look — or anything else that feels important.",
+     placeholder:"1.\n2.\n3.\n4.\n5.",
+     facilitatorTip:"Race might or might not appear on their list. Don't force it.\n\nAfterwards, you might note: 'Race is a part of who some people are — something others notice and make assumptions about. It might not be on your list, but for some people it's something others constantly react to.'"},
+    {type:'multiplechoice',title:'Key Word: Racism',
+     instruction:"Let's make sure we understand what some important words actually mean.\n\n• RACE — a word people use to describe how some people look: skin colour, where their family comes from. Everyone has a race.\n• CULTURE — the things families do, eat, celebrate and believe. Two people can look similar but have very different cultures.\n• RACISM — when someone is treated badly, or spoken to badly, because of their race. It is always wrong.",
+     question:"What is RACISM?",
+     options:["When someone doesn't like another person's music","When someone is treated badly because of their race — and it is always wrong","When people from different countries disagree about things","Just noticing that people look different from each other"],
+     correctIndex:1,
+     feedback:["Not quite — disliking someone's taste is different. Racism is specifically about race.","Exactly right. Racism means treating someone badly — including what you say — because of their race. It is always wrong.","Good thought, but racism is specifically about treating someone badly because of their race.","Just noticing differences isn't racism — racism is when someone is treated badly because of those differences."],
+     facilitatorTip:"Keep explanations simple and age-appropriate. Follow the student's curiosity.\n\nIf you're talking for more than 2 minutes straight — stop and ask a question.\n\nStudents may hold inaccurate beliefs — don't shut them down. Ask: 'Where did you get that idea from?'"},
+    {type:'freetext',title:'Different Looks, Same Loves',
+     instruction:"Race doesn't determine what someone is like, what they can do, or what they're worth. Everyone is more than how they look.",
+     prompt:"Can you think of two people who might look very different from each other — but love exactly the same things? Describe them and what they both love.",
+     placeholder:"Write your ideas here...",
+     facilitatorTip:"Accept any genuine response. The goal is to separate appearance from personality and interests.\n\nCelebrate creative answers. Key message: 'Does knowing what race means change how you think about it?'"},
+  ],
+  3:[
+    {type:'freetext',title:'The Word Timeline',
+     instruction:"A long time ago — hundreds of years — some people decided that certain groups of people were worth less than others, just because of their skin colour. They made laws that said those people couldn't go to the same places, couldn't do the same jobs, couldn't be treated the same.\n\nAnd they made up words to go with those rules. Words meant to say: 'you are less than us.'\n\nThe laws changed. But those words didn't disappear. They stayed in the language. And every time one of those words is used — even now — it carries that whole history with it. Like the word has a memory.",
+     prompt:"If someone made up a really mean word about you — about something you can't change — and used it for years and years, how would that word make you feel when you heard it?",
+     placeholder:"Write your thoughts here...",
+     facilitatorTip:"NEVER say slurs aloud. Always say 'that word' or 'that kind of language.'\n\nWatch for genuine emotional shifts — a student going quiet, looking down, asking a real question. These are the programme working. Give them space."},
+    {type:'multiplechoice',title:'Words and History',
+     instruction:"Remember what we just explored — how some words were made up specifically to hurt people, and how that history travels with the word.",
+     question:"Why do racist words carry so much weight, even today?",
+     options:["Because adults have decided they're bad words","Because they were invented to hurt people, and that history stays with them","Because they sound scary when you say them","They don't really — words are just words"],
+     correctIndex:1,
+     feedback:["There's some truth — but the real reason goes much deeper than rules. It's about history.","You've understood something really important. Racist words were made to hurt, and that history travels with the word wherever it goes.","It's not about how they sound — it's about what they were designed to do to people for hundreds of years.","Words really can hurt — especially ones that carry hundreds of years of history behind them. That's why they're not 'just words.'"],
+     facilitatorTip:"If a student says 'people use those words in music/films', acknowledge it:\n'You're right that it's complicated. The history doesn't disappear when someone uses it in a song. Let's think about why that might be.'\n\nDon't shut the observation down — explore it."},
+    {type:'freetext',title:'Thinking About This',
+     instruction:"Racist words were made up to hurt people. That history doesn't disappear — it travels with the word wherever it goes.",
+     prompt:"Did you know this history before today? Does it change how you think or feel about those words at all?",
+     placeholder:"Write your honest thoughts — there's no right or wrong answer here.",
+     facilitatorTip:"This is a key reflective moment — don't rush it.\n\nIf they say it changes nothing, don't push back. Ask: 'What would it take to change how you think about it?'\n\nIf they show genuine shift, celebrate it warmly."},
+  ],
+  4:[
+    {type:'multiplechoice',title:'In Your Shoes First',
+     instruction:"Imagine someone at school kept calling you a really mean name — about something you can't change. Maybe how you walk. Maybe your voice. Maybe something about your family. Every single day.",
+     question:"How would that make you feel about going to school each morning?",
+     options:["It wouldn't bother me at all","I'd dread it — feel anxious every single morning","I'd just be angry and want to fight back","I'd feel a mix — anxious, angry, sad, all at once"],
+     correctIndex:3,
+     feedback:["Maybe — but most people, when it happens again and again, start to feel it deeply, even if they don't show it.","That's a really honest answer. When something repeats, it's hard not to dread the next time.","Anger makes complete sense — but underneath anger there's usually hurt too. Both are real.","Exactly — real feelings are often a complicated mix. And that mix can be exhausting to carry every single day."],
+     facilitatorTip:"For ASC students, always bridge to their own experiences of being misunderstood or left out.\n\nDo NOT say 'you must have known how much it would hurt' — this creates shame, not growth.\n\nWatch for students who go very quiet — check in gently."},
+    {type:'freetext',title:"Sam's Story",
+     instruction:"Sam works in an office. They love their job and work really hard. One day, on the way to work, a stranger says a racist word to them — in front of other people.\n\nSam has heard that word before. As an adult. At school when they were young. Walking home. From strangers.\n\nWhen it happens again, it doesn't feel like just one word. It feels like every single time, all at once.",
+     prompt:"How do you think Sam felt in that moment? And how might Sam feel coming back to work the next morning?",
+     placeholder:"Write your thoughts about Sam here...",
+     facilitatorTip:"If they struggle with perspective-taking, prompt:\n'Think about a time YOU felt left out or unfairly treated. Now imagine that feeling multiplied — happening again and again for years. That's closer to what Sam feels.'\n\nAccept any genuine response — even imperfect empathy is progress."},
+    {type:'freetext',title:'What Sam Needs',
+     instruction:"Hurt feelings are real, even if you can't see them. And when it happens again and again, people start to dread even walking into a room.",
+     prompt:"What do you think Sam might need to feel safe again? What would YOU need, if that had happened to you?",
+     placeholder:"Write your ideas here...",
+     facilitatorTip:"Any genuine answer is valid. Listen for empathy, even imperfect empathy. Celebrate it:\n'You thought about what they actually needed — that matters.'"},
+  ],
+  5:[
+    {type:'freetext',title:'Words Around Us',
+     instruction:"We know that not everyone outside school thinks the same way we're trying to think together. Some people you know — at home or in your area — might say things about race that aren't okay. That's not your fault. But it does affect what you hear, and sometimes what comes out.",
+     prompt:"Has anyone around you — not at school — ever said something mean about a group of people? You don't have to say who or exactly what. Just: has it happened? And if it did — did you know it felt wrong? Did you feel like you could say something?",
+     placeholder:"Write whatever feels okay to share...",
+     facilitatorTip:"Watch for disclosures of racist attitudes at home. Handle carefully — validate the difficulty without validating the views. Record anything significant in session notes.\n\nDo NOT put the student in the position of defending or criticising their family."},
+    {type:'multiplechoice',title:'Your Toolkit',
+     instruction:"You are not responsible for what other people say. But you ARE responsible for what you choose to say yourself — and you've got tools now.\n\n🛠 TOOLKIT:\n• Someone says something racist near you → Say quietly: 'I don't think that's right' — or just walk away.\n• You feel angry and a word comes fast → Take a breath. Remove yourself. Find a trusted adult.\n• Someone says something racist TO you → Tell a trusted adult. You don't have to deal with it alone.\n• You're not sure if something is racist → Ask someone you trust. Or think: would I want that said about me?",
+     question:"If someone near you says something racist, what's the most powerful thing you can do?",
+     options:["Ignore it and pretend you didn't hear","Laugh along so you fit in","Say quietly: 'I don't think that's right' — or just walk away","Start an argument with them"],
+     correctIndex:2,
+     feedback:["Ignoring is sometimes the safest option — but a quiet word can make a real difference if it's safe.","Going along with something you know is wrong doesn't feel good afterwards. You have more options.","Yes — you don't have to make a scene. A quiet 'I don't think that's right' takes courage and makes a difference.","Arguments can escalate. A calm, quiet response is often more powerful than a fight."],
+     facilitatorTip:"Validate that 'walking away' is always okay — don't pressure students into confrontations that could put them at risk.\n\nThe goal is for them to feel they have SOME agency, not to be a hero."},
+    {type:'freetext',title:'Your Choice',
+     instruction:"You get to decide what kind of person you want to be — even if the people around you make different choices. That's hard. It's actually really brave.",
+     prompt:"From the toolkit we looked at, is there one tool you think you might actually use? Why that one?",
+     placeholder:"Write your thoughts here...",
+     facilitatorTip:"Any genuine engagement is a win.\n\nIf they say 'probably none of them', ask:\n'What would make it easier to use one of them?'"},
+  ],
+  6:[
+    {type:'freetext',title:'Looking Back',
+     instruction:"This is your last session. Before we do anything else — I want to say that you showed up every time. The stuff we've talked about isn't easy. You've stuck with it and thought about some really hard things. That says a lot about you.\n\nThe worlds you've travelled through:\n🌍 World 0: Culture & Diversity\n💬 World 1: Words & Feelings\n🔍 World 2: What Is Race?\n📜 World 3: Where Do These Words Come From?\n👟 World 4: Walking in Someone Else's Shoes\n🤝 World 5: Our Community & Our Choices",
+     prompt:"What's one thing you remember from any of the worlds? What has stuck with you most?",
+     placeholder:"Write what you remember...",
+     facilitatorTip:"Celebrate ANYTHING they remember:\n'You remembered that. That's brilliant.'\n\nIf they can't remember anything, gently prompt with the session titles.\n\nThis is a celebration, not an assessment."},
+    {type:'twotextboxes',title:'I Used to Think... Now I Think...',
+     instruction:"Something powerful happens when we learn and think hard — our thinking can change and grow. You've done a LOT of thinking in Unity Quest.",
+     prompt1:"I used to think...",prompt2:"Now I think...",
+     placeholder1:"Write what you thought at the start of this programme...",
+     placeholder2:"Write what you think now...",
+     facilitatorTip:"Students who brush it off — 'it was fine', 'whatever' — deserve acknowledgment:\n'You might be brushing it off — but I noticed what you did. You showed up, every time.'\n\nGive space for genuine reflection without forcing emotion."},
+    {type:'commitmentcard',title:'My Commitment Card',
+     instruction:"This is YOUR commitment card. It belongs to you. You keep a copy — and I keep a copy — but this is about what YOU decide, not what I want you to say. Take your time.",
+     fields:[
+       {id:'learned',     label:'One thing I learned:',                 placeholder:'Write something you learned in these sessions...'},
+       {id:'differently', label:'One thing I will do differently:',      placeholder:"Write one thing you'll do differently..."},
+       {id:'angry',       label:'If I feel angry or upset, I will:',     placeholder:'Write your plan for when things get hard...'},
+       {id:'talkto',      label:'Someone I can talk to if I need help:', placeholder:'Write the name of someone you trust...'},
+     ],
+     facilitatorTip:"Don't rush through the commitment card — give the student time to mean it.\n\nThis is NOT a behaviour contract. It belongs to THEM.\n\nAfterwards: 'I'm really proud of the thinking you've done. The stuff we've talked about is genuinely hard and you've shown up for every bit of it. You've got a lot to offer.'"},
+  ],
+};
+
+// ============================================================
+//  STATE
+// ============================================================
+const STORAGE_KEY='unity_quest_ori_v1';
+let state={playerName:'',characterId:null,gems:0,completedWorlds:[],unlockedWorlds:[0],
+  worldProgress:{},sessionResponses:{},purchasedItems:[],sessionMeta:{},staffAuthenticated:false};
+function saveState(){const s={...state};delete s.staffAuthenticated;localStorage.setItem(STORAGE_KEY,JSON.stringify(s));}
+function loadState(){try{const r=localStorage.getItem(STORAGE_KEY);if(r)Object.assign(state,JSON.parse(r));}catch(e){}}
+
+// ============================================================
+//  THREE.JS GLOBALS
+// ============================================================
+let renderer,scene,camera,clock;
+let playerGroup=null,playerGlow=null;
+let worldGems=[],wispPoints=null,portalMesh=null;
+let animationId=null;
+const keys={};
+let velocity={x:0,y:0,z:0},onGround=true;
+const GRAVITY=-18,JUMP_FORCE=7.5,MOVE_SPEED=5.5,BOUNDS=36;
+let cameraYaw=0,cameraPitch=0.38;
+const CAM_DIST=8,CAM_HEIGHT=3.5;
+let touchMove={x:0,z:0},touchJump=false;
+let currentWorldId=null,activityStep=0,activityAnswers={};
+let portalNear=false;
+let mouseDown=false,lastMX=0,lastMY=0;
+let communityScene=null,communityCamera=null;
+
+// ============================================================
+//  THREE.JS SETUP
+// ============================================================
+function initThreeJS(){
+  renderer=new THREE.WebGLRenderer({canvas:document.getElementById('canvas'),antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  renderer.shadowMap.enabled=true;
+  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+  clock=new THREE.Clock();
+  camera=new THREE.PerspectiveCamera(60,window.innerWidth/window.innerHeight,0.1,250);
+  window.addEventListener('resize',()=>{
+    renderer.setSize(window.innerWidth,window.innerHeight);
+    camera.aspect=window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+  });
+}
+
+// ============================================================
+//  ORI-STYLE CHARACTER
+// ============================================================
+function buildCharacter(charId){
+  const cfg=CHARACTERS.find(c=>c.id===charId)||CHARACTERS[0];
+  const g=new THREE.Group();
+  const glow=c=>new THREE.MeshPhongMaterial({color:c,emissive:c,emissiveIntensity:0.45,shininess:60});
+  const dark=c=>new THREE.MeshPhongMaterial({color:c,emissive:cfg.glowColor,emissiveIntensity:0.15,shininess:40});
+
+  // Body — slightly luminous
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.65,0.85,0.38),dark(cfg.bodyColor));
+  body.position.y=0.85;body.castShadow=true;g.add(body);
+
+  // Head
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.3,12,10),dark(cfg.bodyColor));
+  head.position.y=1.5;head.castShadow=true;g.add(head);
+
+  // Eyes — glowing
+  [-0.1,0.1].forEach(x=>{
+    const eye=new THREE.Mesh(new THREE.SphereGeometry(0.055,8,8),glow(cfg.glowColor));
+    eye.position.set(x,1.53,0.27);g.add(eye);
+  });
+
+  // Legs
+  [-0.17,0.17].forEach(x=>{
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.09,0.48,8),dark(cfg.accentColor));
+    leg.position.set(x,0.24,0);leg.castShadow=true;g.add(leg);
+  });
+
+  // Spirit aura ring
+  const aura=new THREE.Mesh(new THREE.TorusGeometry(0.5,0.04,8,24),
+    new THREE.MeshBasicMaterial({color:cfg.glowColor,transparent:true,opacity:0.4}));
+  aura.position.y=0.8;aura.rotation.x=Math.PI/2;g.add(aura);
+
+  // Character-specific feature
+  if(charId==='centaur'){
+    const haunch=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.45,0.65),dark(cfg.accentColor));
+    haunch.position.set(0,0.5,0.42);g.add(haunch);
+    [-0.15,0.15].forEach(x=>{
+      const hl=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.07,0.52,6),dark(cfg.bodyColor));
+      hl.position.set(x,0.22,0.44);g.add(hl);
+    });
+  }else if(charId==='griffin'){
+    [-0.65,0.65].forEach((x,i)=>{
+      const wing=new THREE.Mesh(new THREE.BoxGeometry(0.65,0.05,0.45),
+        new THREE.MeshPhongMaterial({color:cfg.accentColor,emissive:cfg.glowColor,emissiveIntensity:0.3,transparent:true,opacity:0.88}));
+      wing.position.set(x,1.0,0);wing.rotation.z=i===0?0.4:-0.4;wing.rotation.y=i===0?0.25:-0.25;g.add(wing);
+    });
+    const beak=new THREE.Mesh(new THREE.ConeGeometry(0.07,0.18,5),glow(0xffcc44));
+    beak.position.set(0,1.45,0.36);beak.rotation.x=Math.PI/2;g.add(beak);
+  }else if(charId==='stag'){
+    const amat=new THREE.MeshPhongMaterial({color:0x6a3010,emissive:cfg.glowColor,emissiveIntensity:0.2});
+    [[-0.16,0.38],[0.16,-0.38]].forEach(([x,rz])=>{
+      const t=new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.038,0.5,6),amat);
+      t.position.set(x,1.88,0);t.rotation.z=rz*0.9;g.add(t);
+      const b=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.28,6),amat);
+      b.position.set(x+(x<0?-0.1:0.1),2.08,0);b.rotation.z=rz*1.7;g.add(b);
+    });
+  }else if(charId==='wolf'){
+    [-0.14,0.14].forEach(x=>{
+      const ear=new THREE.Mesh(new THREE.ConeGeometry(0.1,0.2,5),dark(cfg.accentColor));
+      ear.position.set(x,1.8,0.04);g.add(ear);
+    });
+    const snout=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.12,0.18),dark(cfg.bodyColor));
+    snout.position.set(0,1.44,0.32);g.add(snout);
+  }else if(charId==='mermaid'){
+    const tail=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.07,0.85,8),
+      new THREE.MeshPhongMaterial({color:cfg.accentColor,emissive:cfg.glowColor,emissiveIntensity:0.4}));
+    tail.position.set(0,-0.15,0);g.add(tail);
+    const fin=new THREE.Mesh(new THREE.BoxGeometry(0.42,0.05,0.22),
+      new THREE.MeshPhongMaterial({color:cfg.glowColor,emissive:cfg.glowColor,emissiveIntensity:0.6}));
+    fin.position.set(0,-0.6,0);g.add(fin);
+  }else if(charId==='unicorn'){
+    const horn=new THREE.Mesh(new THREE.ConeGeometry(0.065,0.42,6),
+      new THREE.MeshPhongMaterial({color:0xffd700,emissive:0xffd700,emissiveIntensity:0.8}));
+    horn.position.set(0,1.88,0.17);horn.rotation.x=-0.22;g.add(horn);
+    const mane=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.48,0.09),
+      new THREE.MeshPhongMaterial({color:cfg.glowColor,emissive:cfg.glowColor,emissiveIntensity:0.5}));
+    mane.position.set(0,1.5,-0.18);g.add(mane);
+  }
+
+  // Inner glow light attached to player
+  playerGlow=new THREE.PointLight(cfg.glowColor,1.2,5);
+  playerGlow.position.y=1.2;
+  g.add(playerGlow);
+
+  return g;
+}
+
+// ============================================================
+//  WISPS PARTICLE SYSTEM
+// ============================================================
+function createWisps(count,color,spread,heightMax){
+  const geo=new THREE.BufferGeometry();
+  const pos=new Float32Array(count*3);
+  const sizes=new Float32Array(count);
+  for(let i=0;i<count;i++){
+    pos[i*3]=(Math.random()-0.5)*spread;
+    pos[i*3+1]=Math.random()*heightMax;
+    pos[i*3+2]=(Math.random()-0.5)*spread;
+    sizes[i]=0.08+Math.random()*0.16;
+  }
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const mat=new THREE.PointsMaterial({color:color,size:0.14,transparent:true,opacity:0.75,
+    blending:THREE.AdditiveBlending,depthWrite:false,sizeAttenuation:true});
+  return new THREE.Points(geo,mat);
+}
+
+// ============================================================
+//  ORI-STYLE WORLD BUILDING
+// ============================================================
+function buildWorld(worldId){
+  const ws=WORLDS[worldId];
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(ws.sky);
+  scene.fog=new THREE.FogExp2(ws.fog,0.04);
+
+  // Very dark ambient
+  scene.add(new THREE.AmbientLight(0xffffff,0.08));
+
+  // Coloured directional light (moonlight)
+  const moon=new THREE.DirectionalLight(ws.lightColor,0.35);
+  moon.position.set(-8,20,5);moon.castShadow=true;
+  moon.shadow.camera.near=0.5;moon.shadow.camera.far=80;
+  moon.shadow.camera.left=moon.shadow.camera.bottom=-40;
+  moon.shadow.camera.right=moon.shadow.camera.top=40;
+  moon.shadow.mapSize.set(1024,1024);
+  scene.add(moon);
+
+  // Strong accent point light in scene centre
+  const centreLight=new THREE.PointLight(ws.lightColor,1.5,25);
+  centreLight.position.set(0,6,-12);
+  scene.add(centreLight);
+
+  // Ground — dark, emissive tint
+  const gnd=new THREE.Mesh(new THREE.PlaneGeometry(100,100),
+    new THREE.MeshPhongMaterial({color:ws.ground,emissive:ws.lightColor,emissiveIntensity:0.04}));
+  gnd.rotation.x=-Math.PI/2;gnd.receiveShadow=true;
+  scene.add(gnd);
+
+  // Wisps
+  wispPoints=createWisps(120,ws.gemColor,70,12);
+  scene.add(wispPoints);
+
+  // World-specific decorations
+  addOriDecorations(worldId,ws);
+
+  // Activity portal — ethereal pillar
+  const pGrp=new THREE.Group();
+  const pMat=new THREE.MeshPhongMaterial({color:ws.gemColor,emissive:ws.gemColor,
+    emissiveIntensity:0.9,transparent:true,opacity:0.7});
+  const col=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,3.2,16,1,true),pMat);
+  col.position.y=1.6;pGrp.add(col);
+  const orb=new THREE.Mesh(new THREE.SphereGeometry(0.7,16,16),
+    new THREE.MeshPhongMaterial({color:0xffffff,emissive:ws.gemColor,emissiveIntensity:1.0,transparent:true,opacity:0.85}));
+  orb.position.y=3.4;pGrp.add(orb);
+  // Rings on portal
+  [1.0,2.0,3.0].forEach(y=>{
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.7+y*0.08,0.04,8,24),
+      new THREE.MeshBasicMaterial({color:ws.gemColor,transparent:true,opacity:0.5}));
+    ring.position.y=y;pGrp.add(ring);
+  });
+  const pLight=new THREE.PointLight(ws.gemColor,2.0,8);
+  pLight.position.y=3;pGrp.add(pLight);
+  pGrp.position.set(0,0,-12);
+  scene.add(pGrp);
+  portalMesh=pGrp;
+
+  // Gems
+  worldGems=[];
+  [{x:8,z:-8},{x:-10,z:-5},{x:12,z:5},{x:-8,z:11},{x:5,z:16},{x:-15,z:4}].forEach(pos=>{
+    const gg=new THREE.Group();
+    const gem=new THREE.Mesh(new THREE.OctahedronGeometry(0.3,0),
+      new THREE.MeshPhongMaterial({color:ws.gemColor,emissive:ws.gemColor,emissiveIntensity:0.9,shininess:120}));
+    const halo=new THREE.Mesh(new THREE.TorusGeometry(0.5,0.05,8,16),
+      new THREE.MeshBasicMaterial({color:ws.gemColor,transparent:true,opacity:0.4,blending:THREE.AdditiveBlending}));
+    const gLight=new THREE.PointLight(ws.gemColor,0.8,3);
+    gg.add(gem);gg.add(halo);gg.add(gLight);
+    gg.position.set(pos.x,1.6,pos.z);
+    scene.add(gg);
+    worldGems.push({mesh:gg,collected:false});
+  });
+
+  // Player
+  playerGroup=buildCharacter(state.characterId||'unicorn');
+  playerGroup.position.set(0,0,10);
+  scene.add(playerGroup);
+  velocity={x:0,y:0,z:0};onGround=true;
+}
+
+// Reusable helpers
+const oriMat=(c,e,ei)=>new THREE.MeshPhongMaterial({color:c,emissive:e,emissiveIntensity:ei||0.7,shininess:40});
+const oriBasic=(c,op)=>new THREE.MeshBasicMaterial({color:c,transparent:op!==undefined,opacity:op||1,blending:THREE.AdditiveBlending});
+function oriMesh(geo,mat){const m=new THREE.Mesh(geo,mat);m.castShadow=true;return m;}
+
+function glowTree(x,z,trunkColor,leafColor,height){
+  const g=new THREE.Group();
+  const trunk=oriMesh(new THREE.CylinderGeometry(0.2,0.28,height,8),oriMat(trunkColor,trunkColor,0.1));
+  trunk.position.y=height/2;g.add(trunk);
+  // Multi-layer glowing leaves
+  [[leafColor,0.85,0],[0xffffff,0.3,0.5]].forEach(([c,ei,dy])=>{
+    const leaves=oriMesh(new THREE.SphereGeometry(1.3,10,8),oriMat(leafColor,c,ei));
+    leaves.position.y=height+0.5+dy;g.add(leaves);
+  });
+  const lLight=new THREE.PointLight(leafColor,0.6,5);lLight.position.y=height+1;g.add(lLight);
+  g.position.set(x,0,z);scene.add(g);
+}
+
+function glowMushroom(x,z,capColor,height){
+  const g=new THREE.Group();
+  const stem=oriMesh(new THREE.CylinderGeometry(0.12,0.15,height,8),oriMat(0xffffff,capColor,0.2));
+  stem.position.y=height/2;g.add(stem);
+  const cap=oriMesh(new THREE.SphereGeometry(0.4,10,8),oriMat(capColor,capColor,0.9));
+  cap.scale.y=0.55;cap.position.y=height+0.2;g.add(cap);
+  const mLight=new THREE.PointLight(capColor,0.7,3);mLight.position.y=height+0.5;g.add(mLight);
+  g.position.set(x,0,z);scene.add(g);
+}
+
+function glowCrystal(x,z,color,height){
+  const g=new THREE.Group();
+  const base=oriMesh(new THREE.CylinderGeometry(0.05,0.3,height,6),oriMat(color,color,0.8));
+  const tip=oriMesh(new THREE.ConeGeometry(0.05,height*0.4,6),oriMat(0xffffff,color,1.0));
+  base.position.y=height/2;tip.position.y=height+height*0.2;
+  g.add(base);g.add(tip);
+  const cLight=new THREE.PointLight(color,0.5,4);cLight.position.y=height;g.add(cLight);
+  g.position.set(x,0,z);scene.add(g);
+}
+
+function addOriDecorations(worldId,ws){
+  if(worldId===0){
+    // Ancient teal forest — mushrooms, glowing trees, mossy stones
+    const mushroomCols=[0x4ecdc4,0x00ffcc,0x88ddff,0x00e5d0];
+    for(let i=0;i<12;i++){
+      const ang=i*(Math.PI*2/12)+0.3;
+      glowMushroom(Math.cos(ang)*16,Math.sin(ang)*16,mushroomCols[i%4],0.6+Math.random()*0.8);
+    }
+    for(let i=0;i<8;i++){
+      const ang=i*(Math.PI*2/8)+0.5;
+      glowTree(Math.cos(ang)*24,Math.sin(ang)*24,0x1a4028,0x4ecdc4);
+    }
+    // Ancient mossy stones
+    [[-14,8],[12,-10],[-8,-14],[18,2]].forEach(([x,z])=>{
+      const stone=oriMesh(new THREE.SphereGeometry(1.2+Math.random(),7,6),
+        oriMat(0x1a2820,0x4ecdc4,0.12));
+      stone.scale.y=0.55;stone.position.set(x,0.6,z);scene.add(stone);
+    });
+  }else if(worldId===1){
+    // Ember cavern — crystal spires, flame flowers, glowing lava streams
+    const emberCols=[0xff6600,0xff9900,0xffaa00,0xff4400];
+    for(let i=0;i<10;i++){
+      const ang=i*(Math.PI*2/10);
+      glowCrystal(Math.cos(ang)*18,Math.sin(ang)*18,emberCols[i%4],1.5+Math.random()*3);
+    }
+    // Ember flowers (small glowing spheres on stems)
+    for(let i=0;i<16;i++){
+      const ang=i*(Math.PI*2/16);const r=8+Math.random()*6;
+      const stem=oriMesh(new THREE.CylinderGeometry(0.04,0.04,0.6,6),oriMat(0x400c00,0xff6600,0.2));
+      stem.position.set(Math.cos(ang)*r,0.3,Math.sin(ang)*r);scene.add(stem);
+      const bloom=oriMesh(new THREE.SphereGeometry(0.18,8,8),oriMat(0xff4400,0xff9900,1.0));
+      bloom.position.set(Math.cos(ang)*r,0.7,Math.sin(ang)*r);scene.add(bloom);
+    }
+    // Lava crack
+    const lava=oriMesh(new THREE.BoxGeometry(30,0.08,1.5),oriMat(0xff4400,0xff6600,0.9));
+    lava.position.set(5,0.04,-8);lava.rotation.y=0.4;scene.add(lava);
+  }else if(worldId===2){
+    // Spirit constellation — crystal pillars, floating star orbs
+    for(let i=0;i<8;i++){
+      const ang=i*(Math.PI*2/8);
+      glowCrystal(Math.cos(ang)*20,Math.sin(ang)*20,0x9b44ff,2+Math.random()*4);
+    }
+    // Constellation orbs high in the sky
+    for(let i=0;i<20;i++){
+      const orb=oriMesh(new THREE.SphereGeometry(0.15+Math.random()*0.2,8,8),
+        oriMat(0xffffff,0xaa44ff,0.9));
+      orb.position.set((Math.random()-0.5)*50,6+Math.random()*10,(Math.random()-0.5)*50);
+      scene.add(orb);
+    }
+    // Glowing rune slabs on ground
+    for(let i=0;i<6;i++){
+      const ang=i*(Math.PI*2/6);
+      const slab=oriMesh(new THREE.BoxGeometry(2,0.12,1.2),oriMat(0x1a0040,0x9b44ff,0.5));
+      slab.position.set(Math.cos(ang)*10,0.06,Math.sin(ang)*10);slab.rotation.y=ang;scene.add(slab);
+    }
+  }else if(worldId===3){
+    // Ancient ruins — weathered pillars, glowing amber runes
+    const stoneMat=oriMat(0x2a1e10,0xff9900,0.15);
+    for(let i=0;i<8;i++){
+      const h=2+Math.random()*4;
+      const pil=oriMesh(new THREE.CylinderGeometry(0.55,0.65,h,8),stoneMat);
+      pil.position.set(-24+i*7,h/2,-16+Math.random()*4);scene.add(pil);
+      if(Math.random()>0.45){
+        const cap=oriMesh(new THREE.BoxGeometry(1.4,0.35,1.4),stoneMat);
+        cap.position.set(pil.position.x,h+0.18,pil.position.z);scene.add(cap);
+      }
+    }
+    // Rune stones glowing amber
+    [[-10,5],[8,-12],[-5,-18],[14,8]].forEach(([x,z])=>{
+      const rs=oriMesh(new THREE.BoxGeometry(0.5,1.8,0.25),oriMat(0x2a1a08,0xff9900,0.8));
+      rs.position.set(x,0.9,z);scene.add(rs);
+      const rl=new THREE.PointLight(0xff9900,0.6,4);rl.position.set(x,1.5,z);scene.add(rl);
+    });
+    // Timeline glowing path
+    const tl=oriMesh(new THREE.BoxGeometry(48,0.08,0.6),oriMat(0x2a1600,0xff9900,0.7));
+    tl.position.set(0,0.04,-5);scene.add(tl);
+  }else if(worldId===4){
+    // Dream realm — spirit lilies, floating heart orbs, silk bridges
+    const pinkMat=oriMat(0x4a1a30,0xff77cc,0.6);
+    // Lily pads
+    for(let i=0;i<10;i++){
+      const ang=i*(Math.PI*2/10);const r=10+Math.random()*5;
+      const lily=oriMesh(new THREE.CylinderGeometry(0.8+Math.random()*0.4,0.9,0.1,10),
+        new THREE.MeshPhongMaterial({color:0x2a0820,emissive:0xff77cc,emissiveIntensity:0.4}));
+      lily.position.set(Math.cos(ang)*r,0.05,Math.sin(ang)*r);scene.add(lily);
+    }
+    // Floating orbs (spirit lights) at different heights
+    for(let i=0;i<14;i++){
+      const orb=oriMesh(new THREE.SphereGeometry(0.2+Math.random()*0.25,10,8),
+        oriMat(0xffc0e0,0xff77cc,0.9));
+      orb.position.set((Math.random()-0.5)*40,2+Math.random()*6,(Math.random()-0.5)*40);
+      scene.add(orb);
+      const ol=new THREE.PointLight(0xff77cc,0.3,4);ol.position.copy(orb.position);scene.add(ol);
+    }
+    // Dream trees (dark pink)
+    for(let i=0;i<6;i++){
+      const ang=i*(Math.PI*2/6);
+      glowTree(Math.cos(ang)*20,Math.sin(ang)*20,0x2a0820,0xff77cc);
+    }
+  }else if(worldId===5){
+    // Living forest — bioluminescent plants, huge glowing trees, fireflies
+    for(let i=0;i<10;i++){
+      const ang=i*(Math.PI*2/10);
+      glowTree(Math.cos(ang)*22,Math.sin(ang)*22,0x0a2010,0x00ff88,3+Math.random()*2);
+    }
+    for(let i=0;i<18;i++){
+      const ang=i*(Math.PI*2/18)+0.2;const r=8+Math.random()*5;
+      glowMushroom(Math.cos(ang)*r,Math.sin(ang)*r,[0x00ff88,0x00ffcc,0x44ff66,0x00e654][i%4],0.4+Math.random()*0.6);
+    }
+    // Bioluminescent ground patches
+    for(let i=0;i<12;i++){
+      const ang=i*(Math.PI*2/12);const r=5+Math.random()*3;
+      const patch=oriMesh(new THREE.CircleGeometry(0.6+Math.random()*0.4,8),
+        new THREE.MeshBasicMaterial({color:0x00ff88,transparent:true,opacity:0.3,blending:THREE.AdditiveBlending}));
+      patch.rotation.x=-Math.PI/2;patch.position.set(Math.cos(ang)*r,0.01,Math.sin(ang)*r);scene.add(patch);
+    }
+  }else if(worldId===6){
+    // Celestial — aurora columns, golden pillars, star fields
+    const auraCols=[0xff6b6b,0xff9900,0xffd700,0x00ff88,0x44aaff,0x9b44ff];
+    auraCols.forEach((c,i)=>{
+      const ang=i*(Math.PI*2/auraCols.length);
+      const col=oriMesh(new THREE.CylinderGeometry(0.3,0.3,14,8,1,true),
+        new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:0.18,blending:THREE.AdditiveBlending,side:THREE.DoubleSide}));
+      col.position.set(Math.cos(ang)*18,7,Math.sin(ang)*18);scene.add(col);
+      const cl=new THREE.PointLight(c,0.6,10);cl.position.copy(col.position);cl.position.y=4;scene.add(cl);
+    });
+    // Golden celebratory pillars
+    for(let i=0;i<8;i++){
+      const ang=i*(Math.PI*2/8);
+      glowCrystal(Math.cos(ang)*12,Math.sin(ang)*12,0xffd700,2+Math.random()*2);
+    }
+    // Star burst particles already in wisps but add extra bright ones
+    for(let i=0;i<30;i++){
+      const star=oriMesh(new THREE.SphereGeometry(0.12+Math.random()*0.18,6,6),
+        new THREE.MeshBasicMaterial({color:[0xffd700,0xffffff,0xff9900,0x44aaff][i%4]}));
+      star.position.set((Math.random()-0.5)*60,3+Math.random()*14,(Math.random()-0.5)*60);
+      scene.add(star);
+    }
+  }
+}
+
+// ============================================================
+//  PLAYER PHYSICS & CAMERA
+// ============================================================
+function updatePlayer(dt){
+  if(!playerGroup)return;
+  const fw={x:-Math.sin(cameraYaw),z:-Math.cos(cameraYaw)};
+  const rt={x:Math.cos(cameraYaw),z:-Math.sin(cameraYaw)};
+  let dx=0,dz=0;
+  if(keys['KeyW']||keys['ArrowUp']||touchMove.z<0){dx+=fw.x;dz+=fw.z;}
+  if(keys['KeyS']||keys['ArrowDown']||touchMove.z>0){dx-=fw.x;dz-=fw.z;}
+  if(keys['KeyA']||keys['ArrowLeft']||touchMove.x<0){dx-=rt.x;dz-=rt.z;}
+  if(keys['KeyD']||keys['ArrowRight']||touchMove.x>0){dx+=rt.x;dz+=rt.z;}
+  const len=Math.sqrt(dx*dx+dz*dz);
+  if(len>0){dx/=len;dz/=len;}
+  velocity.x=dx*MOVE_SPEED;velocity.z=dz*MOVE_SPEED;
+  velocity.y+=GRAVITY*dt;
+  if((keys['Space']||touchJump)&&onGround){velocity.y=JUMP_FORCE;onGround=false;touchJump=false;}
+  playerGroup.position.x+=velocity.x*dt;
+  playerGroup.position.y+=velocity.y*dt;
+  playerGroup.position.z+=velocity.z*dt;
+  if(playerGroup.position.y<=0){playerGroup.position.y=0;velocity.y=0;onGround=true;}
+  playerGroup.position.x=Math.max(-BOUNDS,Math.min(BOUNDS,playerGroup.position.x));
+  playerGroup.position.z=Math.max(-BOUNDS,Math.min(BOUNDS,playerGroup.position.z));
+  if(len>0)playerGroup.rotation.y=Math.atan2(dx,dz);
+
+  // Portal proximity
+  if(portalMesh){
+    const pd=playerGroup.position.distanceTo(portalMesh.position);
+    const pp=document.getElementById('portal-prompt');
+    if(pd<4.5&&!portalNear){portalNear=true;if(pp)pp.style.display='block';}
+    else if(pd>=4.5&&portalNear){portalNear=false;if(pp)pp.style.display='none';}
+    if(pd<4.5&&(keys['KeyE']||keys['Enter'])){keys['KeyE']=false;keys['Enter']=false;startActivities();}
+  }
+}
+function updateCamera(){
+  if(!playerGroup)return;
+  const px=playerGroup.position.x,py=playerGroup.position.y,pz=playerGroup.position.z;
+  camera.position.x=px+Math.sin(cameraYaw)*Math.cos(cameraPitch)*CAM_DIST;
+  camera.position.y=py+CAM_HEIGHT+Math.sin(cameraPitch)*CAM_DIST;
+  camera.position.z=pz+Math.cos(cameraYaw)*Math.cos(cameraPitch)*CAM_DIST;
+  camera.lookAt(px,py+1.2,pz);
+}
+
+// ============================================================
+//  GEMS & WISPS UPDATE
+// ============================================================
+function updateGems(dt,elapsed){
+  worldGems.forEach(gd=>{
+    if(gd.collected)return;
+    gd.mesh.position.y=1.6+Math.sin(elapsed*2+gd.mesh.position.x)*0.3;
+    gd.mesh.rotation.y+=dt*1.8;
+    if(playerGroup&&playerGroup.position.distanceTo(gd.mesh.position)<1.8){
+      gd.collected=true;scene.remove(gd.mesh);
+      state.gems+=2;saveState();updateHUD();gemPopup('+2 ✦');
+    }
+  });
+  // Animate wisps — slow upward drift
+  if(wispPoints){
+    const pos=wispPoints.geometry.attributes.position.array;
+    for(let i=1;i<pos.length;i+=3){
+      pos[i]+=dt*0.18;
+      if(pos[i]>12)pos[i]=0;
+    }
+    wispPoints.geometry.attributes.position.needsUpdate=true;
+    wispPoints.rotation.y+=dt*0.04;
+  }
+  // Portal pulse
+  if(portalMesh){
+    portalMesh.rotation.y+=dt*0.7;
+    const pulse=0.5+0.5*Math.sin(elapsed*3);
+    portalMesh.children.forEach(c=>{
+      if(c.material&&c.material.emissiveIntensity!==undefined)
+        c.material.emissiveIntensity=0.7+pulse*0.3;
+    });
+  }
+}
+function gemPopup(msg){
+  const p=document.createElement('div');
+  p.className='gem-popup';p.textContent=msg;
+  document.body.appendChild(p);setTimeout(()=>p.remove(),1300);
+}
+function updateHUD(){
+  const ge=document.getElementById('hud-gems');
+  if(ge)ge.textContent='💎 '+state.gems;
+  const wn=document.getElementById('hud-world-name');
+  if(wn&&currentWorldId!==null)wn.textContent=WORLDS[currentWorldId].name;
+}
+
+// ============================================================
+//  GAME LOOP
+// ============================================================
+function gameLoop(){
+  animationId=requestAnimationFrame(gameLoop);
+  const dt=Math.min(clock.getDelta(),0.05);
+  const elapsed=clock.elapsedTime;
+  updatePlayer(dt);updateCamera();updateGems(dt,elapsed);
+  renderer.render(scene,camera);
+}
+function startLoop(){if(!animationId){clock.start();gameLoop();}}
+function stopLoop(){if(animationId){cancelAnimationFrame(animationId);animationId=null;}}
+
+// ============================================================
+//  ACTIVITY SYSTEM
+// ============================================================
+function startActivities(){
+  const acts=ACTIVITIES[currentWorldId];if(!acts)return;
+  activityStep=state.worldProgress[currentWorldId]||0;
+  activityAnswers={...(state.sessionResponses[currentWorldId]||{})};
+  stopLoop();
+  document.getElementById('hud').style.display='none';
+  const pp=document.getElementById('portal-prompt');if(pp)pp.style.display='none';
+  portalNear=false;
+  document.getElementById('activity-overlay').style.display='flex';
+  renderActivityStep();
+}
+function renderActivityStep(){
+  const acts=ACTIVITIES[currentWorldId];
+  const act=acts[activityStep];if(!act){finishSession();return;}
+  const dotsEl=document.getElementById('activity-progress-dots');
+  dotsEl.innerHTML='';
+  acts.forEach((_,i)=>{
+    const d=document.createElement('div');
+    d.className='progress-dot'+(i===activityStep?' active':i<activityStep?' done':'');
+    dotsEl.appendChild(d);
+  });
+  const content=document.getElementById('activity-content');content.innerHTML='';
+  document.getElementById('btn-facilitator').onclick=()=>showFacilitatorTip(act.facilitatorTip);
+
+  const h2=document.createElement('h2');h2.className='activity-title';h2.textContent=act.title;content.appendChild(h2);
+  if(act.instruction){
+    const ins=document.createElement('div');ins.className='activity-instruction';
+    ins.style.whiteSpace='pre-line';ins.textContent=act.instruction;content.appendChild(ins);
+  }
+  if(act.type==='video')renderVideo(content,act);
+  else if(act.type==='freetext')renderFreeText(content,act);
+  else if(act.type==='wordsort')renderWordSort(content,act);
+  else if(act.type==='multiplechoice')renderMC(content,act);
+  else if(act.type==='twotextboxes')renderTwoBoxes(content,act);
+  else if(act.type==='commitmentcard')renderCommitmentCard(content,act);
+
+  const nav=document.getElementById('activity-nav');nav.innerHTML='';
+  const prev=document.createElement('button');
+  prev.className='btn btn-ghost';prev.textContent='← Back';
+  prev.style.visibility=activityStep>0?'visible':'hidden';
+  prev.onclick=()=>{activityStep--;renderActivityStep();};nav.appendChild(prev);
+  const next=document.createElement('button');
+  next.className='btn btn-primary';
+  next.textContent=activityStep===acts.length-1?'Complete Session ✦':'Next →';
+  next.onclick=()=>advanceActivity(act);nav.appendChild(next);
+}
+function renderVideo(c,act){
+  const box=document.createElement('div');box.className='video-panel';
+  box.innerHTML=`<div class="video-info"><div class="video-icon">🎬</div><div>
+    <strong style="color:var(--teal)">${act.videoTitle}</strong><br>
+    <span style="color:var(--sub);font-size:0.85rem">Run time: ${act.videoDuration}</span>
+  </div></div>
+  <a href="${act.videoUrl}" target="_blank" rel="noopener" class="btn btn-primary" style="display:inline-block;text-decoration:none;margin:4px 0">▶ Watch Video</a>
+  <p style="margin-top:10px;color:var(--sub);font-size:0.85rem">Opens in a new tab — come back here when you're done!</p>
+  <button id="vid-watched" class="btn btn-gold" style="margin-top:10px">✅ I've watched it!</button>`;
+  c.appendChild(box);
+  document.getElementById('vid-watched').onclick=function(){
+    this.textContent='✔ Great work!';this.style.borderColor='#00e676';this.style.color='#00e676';
+    activityAnswers['video_'+currentWorldId]='watched';
+  };
+}
+function renderFreeText(c,act){
+  const p=document.createElement('p');p.className='activity-prompt';p.textContent=act.prompt;c.appendChild(p);
+  const ta=document.createElement('textarea');ta.className='game-textarea';ta.rows=5;
+  ta.placeholder=act.placeholder||'Write your thoughts here...';
+  const key='ft_'+act.title;ta.value=activityAnswers[key]||'';
+  ta.oninput=()=>{activityAnswers[key]=ta.value;};c.appendChild(ta);
+}
+function renderWordSort(c,act){
+  const wrap=document.createElement('div');wrap.className='word-sort';
+  const bank=document.createElement('div');bank.className='word-bank';
+  bank.innerHTML='<p style="font-weight:700;color:var(--teal);margin-bottom:6px">Tap a word, then tap a column:</p>';
+  const row=document.createElement('div');row.className='word-bank-row';
+  bank.appendChild(row);wrap.appendChild(bank);
+  const colsDiv=document.createElement('div');colsDiv.className='sort-columns';
+  act.columns.forEach((col,ci)=>{
+    const colEl=document.createElement('div');colEl.className='sort-column';colEl.dataset.ci=ci;
+    colEl.innerHTML=`<div class="sort-col-header">${col}</div>`;colsDiv.appendChild(colEl);
+  });
+  wrap.appendChild(colsDiv);c.appendChild(wrap);
+  const saved=activityAnswers['sort_'+currentWorldId]||{};
+  let selected=null;
+  act.words.forEach(word=>{
+    const pill=document.createElement('span');pill.className='word-pill';
+    pill.textContent=word;pill.dataset.word=word;
+    const ci=saved[word];
+    if(ci!==undefined){
+      pill.style.background=['rgba(0,230,118,0.2)','rgba(255,82,82,0.2)','rgba(68,170,255,0.2)'][ci]||'';
+      pill.style.borderColor=['#00e676','#ff5252','#44aaff'][ci]||'';
+      pill.dataset.assigned='1';colsDiv.children[ci]&&colsDiv.children[ci].appendChild(pill);
+    }else{row.appendChild(pill);}
+    pill.onclick=()=>{
+      if(pill.dataset.assigned)return;
+      if(selected&&selected!==pill)selected.classList.remove('selected');
+      pill.classList.toggle('selected');selected=pill.classList.contains('selected')?pill:null;
+    };
+  });
+  colsDiv.querySelectorAll('.sort-column').forEach(colEl=>{
+    colEl.onclick=()=>{
+      if(!selected)return;const ci=parseInt(colEl.dataset.ci);
+      selected.classList.remove('selected');selected.dataset.assigned='1';
+      selected.style.background=['rgba(0,230,118,0.2)','rgba(255,82,82,0.2)','rgba(68,170,255,0.2)'][ci]||'';
+      selected.style.borderColor=['#00e676','#ff5252','#44aaff'][ci]||'';
+      colEl.appendChild(selected);
+      if(!activityAnswers['sort_'+currentWorldId])activityAnswers['sort_'+currentWorldId]={};
+      activityAnswers['sort_'+currentWorldId][selected.dataset.word]=ci;selected=null;
+    };
+  });
+}
+function renderMC(c,act){
+  const p=document.createElement('p');p.className='activity-prompt';p.style.fontWeight='800';
+  p.textContent=act.question;c.appendChild(p);
+  const optDiv=document.createElement('div');optDiv.className='mc-options';
+  const saved=activityAnswers['mc_'+act.title];
+  act.options.forEach((opt,i)=>{
+    const btn=document.createElement('button');btn.className='mc-option';btn.textContent=opt;
+    if(saved!==undefined){
+      if(i===act.correctIndex)btn.classList.add('correct');
+      else if(saved===i)btn.classList.add('incorrect');
+      btn.disabled=true;
+    }
+    btn.onclick=()=>{
+      activityAnswers['mc_'+act.title]=i;
+      optDiv.querySelectorAll('.mc-option').forEach((b,j)=>{
+        b.className='mc-option';b.disabled=true;
+        if(j===act.correctIndex)b.classList.add('correct');
+        else if(j===i)b.classList.add('incorrect');
+      });
+      const fb=document.getElementById('mc-fb');
+      if(fb){fb.textContent=act.feedback[i];fb.style.display='block';
+        fb.style.color=i===act.correctIndex?'#00e676':'var(--amber)';}
+    };optDiv.appendChild(btn);
+  });c.appendChild(optDiv);
+  const fb=document.createElement('div');fb.id='mc-fb';
+  fb.style.cssText='display:none;margin-top:12px;padding:10px 14px;border-radius:8px;background:rgba(78,205,196,0.06);font-weight:700;border-left:2px solid var(--teal)';
+  if(saved!==undefined){
+    fb.textContent=act.feedback[saved];fb.style.display='block';
+    fb.style.color=saved===act.correctIndex?'#00e676':'var(--amber)';
+  }c.appendChild(fb);
+}
+function renderTwoBoxes(c,act){
+  const row=document.createElement('div');
+  row.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%';
+  [1,2].forEach(n=>{
+    const col=document.createElement('div');
+    const lbl=document.createElement('p');lbl.className='activity-prompt';lbl.style.marginBottom='6px';
+    lbl.textContent=act['prompt'+n];col.appendChild(lbl);
+    const ta=document.createElement('textarea');ta.className='game-textarea';ta.rows=5;
+    ta.placeholder=act['placeholder'+n];const key='ttb'+n+'_'+currentWorldId;
+    ta.value=activityAnswers[key]||'';ta.oninput=()=>{activityAnswers[key]=ta.value;};
+    col.appendChild(ta);row.appendChild(col);
+  });c.appendChild(row);
+}
+function renderCommitmentCard(c,act){
+  const card=document.createElement('div');card.className='commitment-card';
+  const saved=activityAnswers['commitment_'+currentWorldId]||{};
+  act.fields.forEach(f=>{
+    const wrap=document.createElement('div');wrap.className='commitment-field';
+    const lbl=document.createElement('label');
+    lbl.textContent=f.label;lbl.style.cssText='font-weight:700;color:var(--teal);margin-bottom:4px;display:block';
+    wrap.appendChild(lbl);
+    const ta=document.createElement('textarea');ta.className='game-textarea';ta.rows=2;
+    ta.placeholder=f.placeholder;ta.value=saved[f.id]||'';
+    ta.oninput=()=>{
+      if(!activityAnswers['commitment_'+currentWorldId])activityAnswers['commitment_'+currentWorldId]={};
+      activityAnswers['commitment_'+currentWorldId][f.id]=ta.value;
+    };wrap.appendChild(ta);card.appendChild(wrap);
+  });
+  const sw=document.createElement('div');sw.className='commitment-field';
+  const slbl=document.createElement('label');
+  slbl.textContent='Signed:';slbl.style.cssText='font-weight:700;color:var(--teal);margin-bottom:4px;display:block';
+  sw.appendChild(slbl);
+  const si=document.createElement('input');si.className='game-input';si.placeholder=state.playerName||'Your name';
+  si.value=saved['signed']||'';
+  si.oninput=()=>{
+    if(!activityAnswers['commitment_'+currentWorldId])activityAnswers['commitment_'+currentWorldId]={};
+    activityAnswers['commitment_'+currentWorldId]['signed']=si.value;
+  };sw.appendChild(si);
+  const dt=document.createElement('p');dt.style.cssText='color:var(--sub);font-size:0.85rem;margin-top:6px';
+  dt.textContent='Date: '+new Date().toLocaleDateString('en-GB');
+  sw.appendChild(dt);card.appendChild(sw);c.appendChild(card);
+}
+function advanceActivity(act){
+  state.sessionResponses[currentWorldId]=Object.assign(state.sessionResponses[currentWorldId]||{},activityAnswers);
+  activityStep++;
+  if(activityStep>=ACTIVITIES[currentWorldId].length){finishSession();}
+  else{state.worldProgress[currentWorldId]=activityStep;saveState();renderActivityStep();}
+}
+function finishSession(){
+  const first=!state.completedWorlds.includes(currentWorldId);
+  if(first){
+    state.gems+=10;
+    const r=state.sessionResponses[currentWorldId]||{};
+    if(Object.keys(r).length>=ACTIVITIES[currentWorldId].length)state.gems+=5;
+    state.completedWorlds.push(currentWorldId);
+    const nxt=currentWorldId+1;
+    if(nxt<WORLDS.length&&!state.unlockedWorlds.includes(nxt))state.unlockedWorlds.push(nxt);
+    state.sessionMeta[currentWorldId]={completedAt:new Date().toISOString(),playerName:state.playerName,characterId:state.characterId};
+  }
+  delete state.worldProgress[currentWorldId];saveState();
+  document.getElementById('activity-overlay').style.display='none';
+  stopLoop();scene=null;playerGroup=null;worldGems=[];wispPoints=null;portalMesh=null;
+  showCompletionModal(currentWorldId,first);
+}
+function showCompletionModal(worldId,first){
+  const w=WORLDS[worldId];
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(1,8,18,0.93);display:flex;align-items:center;justify-content:center;z-index:100;font-family:Nunito,sans-serif;backdrop-filter:blur(10px)';
+  ov.innerHTML=`<div style="background:linear-gradient(160deg,rgba(3,18,36,0.98),rgba(2,10,22,0.98));
+    border:1.5px solid rgba(78,205,196,0.4);border-radius:24px;
+    box-shadow:0 0 60px rgba(78,205,196,0.18);padding:40px;max-width:480px;width:90%;text-align:center;color:var(--text)">
+    <div style="font-size:3.5rem;margin-bottom:12px">${first?'✨':'⭐'}</div>
+    <h2 style="font-family:Cinzel,serif;font-size:1.8rem;color:var(--teal);margin-bottom:8px;text-shadow:0 0 20px rgba(78,205,196,0.5)">
+      ${first?'World Complete!':'Well done!'}
+    </h2>
+    <p style="color:var(--sub);margin-bottom:16px">You've completed <strong style="color:var(--text)">${w.name}</strong></p>
+    ${first?`<p style="color:var(--gold);font-weight:700;margin-bottom:20px">+10 gems earned! 💎</p>`:''}
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button id="mod-map" class="btn btn-primary">World Map</button>
+      ${worldId<6?`<button id="mod-next" class="btn btn-secondary">Next World →</button>`:''}
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  document.getElementById('mod-map').onclick=()=>{ov.remove();showScreen('worldmap');};
+  const mn=document.getElementById('mod-next');
+  if(mn)mn.onclick=()=>{ov.remove();enterWorld(worldId+1);};
+}
+function showFacilitatorTip(tip){
+  const m=document.getElementById('facilitator-modal');
+  const t=document.getElementById('facilitator-tip-text');
+  if(t)t.textContent=tip||'No specific tip for this step.';
+  m.style.display='flex';
+}
+
+// ============================================================
+//  SHOP & COMMUNITY
+// ============================================================
+function renderShop(){
+  const grid=document.getElementById('shop-grid');const ga=document.getElementById('gems-available');
+  if(ga)ga.textContent='💎 '+state.gems+' gems available';
+  if(!grid)return;grid.innerHTML='';
+  SHOP_ITEMS.forEach(item=>{
+    const owned=state.purchasedItems.includes(item.id);
+    const card=document.createElement('div');card.className='shop-item-card'+(owned?' owned':'');
+    card.innerHTML=`<div class="shop-emoji">${item.emoji}</div>
+      <h3>${item.name}</h3><p>${item.desc}</p>
+      <div class="shop-cost">💎 ${item.cost}</div>
+      <button class="btn ${owned?'btn-ghost':'btn-gold'} btn-sm" ${owned||state.gems<item.cost?'disabled':''}>
+        ${owned?'✔ Owned':'Buy'}</button>`;
+    const btn=card.querySelector('button');
+    if(!owned&&state.gems>=item.cost)btn.onclick=()=>{
+      state.gems-=item.cost;state.purchasedItems.push(item.id);saveState();renderShop();
+      gemPopup(item.name+' added! ✦');
+    };grid.appendChild(card);
+  });
+}
+function renderCommunityWorld(){
+  const canvas=document.getElementById('community-canvas');if(!canvas)return;
+  canvas.width=canvas.offsetWidth||640;canvas.height=canvas.offsetHeight||320;
+  if(!communityScene){
+    communityScene=new THREE.Scene();communityScene.background=new THREE.Color(0x010d04);
+    communityScene.fog=new THREE.FogExp2(0x010d04,0.06);
+    communityScene.add(new THREE.AmbientLight(0xffffff,0.1));
+    const sl=new THREE.DirectionalLight(0x00ff88,0.4);sl.position.set(10,20,10);communityScene.add(sl);
+    const pl=new THREE.PointLight(0x00ff88,1.2,20);pl.position.set(0,8,0);communityScene.add(pl);
+    const gnd=new THREE.Mesh(new THREE.PlaneGeometry(80,80),
+      new THREE.MeshPhongMaterial({color:0x041208,emissive:0x00ff88,emissiveIntensity:0.05}));
+    gnd.rotation.x=-Math.PI/2;communityScene.add(gnd);
+    communityCamera=new THREE.PerspectiveCamera(50,canvas.width/canvas.height,0.1,150);
+    communityCamera.position.set(0,16,24);communityCamera.lookAt(0,0,0);
+  }
+  communityScene.children.filter(c=>c.userData.ci).forEach(c=>communityScene.remove(c));
+  const positions=[{x:-10,z:-6},{x:9,z:-8},{x:-4,z:5},{x:12,z:4},{x:0,z:-5},{x:-15,z:3}];
+  state.purchasedItems.forEach((id,idx)=>{
+    const obj=buildCommunityObj(id);if(!obj)return;
+    const pos=positions[idx%positions.length];
+    obj.position.set(pos.x,0,pos.z);obj.userData.ci=true;communityScene.add(obj);
+  });
+  const listEl=document.getElementById('community-items-list');
+  if(listEl){
+    if(!state.purchasedItems.length){listEl.innerHTML='<p style="color:var(--sub)">Visit the shop to start building your community!</p>';}
+    else listEl.innerHTML=state.purchasedItems.map(id=>{
+      const it=SHOP_ITEMS.find(s=>s.id===id);
+      return it?`<span class="item-chip">${it.emoji} ${it.name}</span>`:'';
+    }).join('');
+  }
+  if(renderer&&communityScene&&communityCamera){
+    renderer.setSize(canvas.width,canvas.height);renderer.render(communityScene,communityCamera);
+    renderer.setSize(window.innerWidth,window.innerHeight);
+  }
+}
+function buildCommunityObj(id){
+  const g=new THREE.Group();
+  if(id==='rainbow_tree'){
+    const trunk=oriMesh(new THREE.CylinderGeometry(0.25,0.3,2,8),oriMat(0x1a4028,0x4ecdc4,0.1));
+    trunk.position.y=1;g.add(trunk);
+    [0xff0000,0xff7700,0xffff00,0x00ff00,0x4444ff].forEach((c,i)=>{
+      const lyr=oriMesh(new THREE.SphereGeometry(1.7-i*0.2,8,6),oriMat(c,c,0.7));lyr.position.y=2.5+i*0.25;g.add(lyr);
+    });
+  }else if(id==='mural_wall'){
+    const wall=oriMesh(new THREE.BoxGeometry(6,3.2,0.35),oriMat(0x1a1e2a,0x9b44ff,0.2));wall.position.y=1.6;g.add(wall);
+    [[0xff6b6b,1.5,1],[0x4ecdc4,0,1],[0xffd700,-1.5,1]].forEach(([c,x,y])=>{
+      const sq=oriMesh(new THREE.BoxGeometry(1.3,1.3,0.08),oriMat(c,c,0.8));sq.position.set(x,y,0.25);g.add(sq);
+    });
+  }else if(id==='community_hall'){
+    const b=oriMesh(new THREE.BoxGeometry(5,3.5,4),oriMat(0x1a1a2a,0x9b44ff,0.2));b.position.y=1.75;g.add(b);
+    const roof=oriMesh(new THREE.ConeGeometry(4,2,4),oriMat(0x220033,0x9b44ff,0.5));roof.position.y=4.5;g.add(roof);
+    const door=oriMesh(new THREE.BoxGeometry(0.7,1.6,0.1),oriMat(0x8b44ff,0x9b44ff,0.9));door.position.set(0,0.8,2.1);g.add(door);
+    g.add(Object.assign(new THREE.PointLight(0x9b44ff,0.8,8),{position:{x:0,y:2,z:0}}));
+  }else if(id==='rainbow_bridge'){
+    const deck=oriMesh(new THREE.BoxGeometry(2,0.25,8),oriMat(0x1a2030,0x4ecdc4,0.2));deck.position.y=1;g.add(deck);
+    [0xff0000,0xff7700,0xffff00].forEach((c,i)=>{
+      const arch=new THREE.Mesh(new THREE.TorusGeometry(2.5-i*0.35,0.15,6,20,Math.PI),
+        new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:0.7,blending:THREE.AdditiveBlending}));
+      arch.rotation.x=Math.PI/2;arch.position.set(0,1+i*0.3,0);g.add(arch);
+    });
+  }else if(id==='festival_tent'){
+    const base=oriMesh(new THREE.CylinderGeometry(3,3.2,0.25,8),oriMat(0x1a1020,0xff77cc,0.3));base.position.y=0.12;g.add(base);
+    [[0xff6b6b,0],[0x4ecdc4,Math.PI/4],[0xffd700,Math.PI/2],[0x9b44ff,3*Math.PI/4]].forEach(([c,a])=>{
+      const panel=oriMesh(new THREE.ConeGeometry(3,3,4,1,true),oriMat(c,c,0.6));panel.position.y=1.5;panel.rotation.y=a;g.add(panel);
+    });
+    g.add(Object.assign(new THREE.PointLight(0xff77cc,0.8,8),{position:{x:0,y:2,z:0}}));
+  }else if(id==='world_landmark'){
+    const b2=oriMesh(new THREE.CylinderGeometry(1.4,1.9,1,4),oriMat(0x202028,0xffd700,0.2));b2.position.y=0.5;g.add(b2);
+    const mid=oriMesh(new THREE.CylinderGeometry(0.7,1.3,1.5,4),oriMat(0x2a2a38,0xffd700,0.3));mid.position.y=2;g.add(mid);
+    const top2=oriMesh(new THREE.CylinderGeometry(0.05,0.6,2,4),oriMat(0x202028,0xffd700,0.4));top2.position.y=3.75;g.add(top2);
+    const spire=oriMesh(new THREE.CylinderGeometry(0.04,0.08,1.5,6),oriMat(0xffd700,0xffd700,1.0));spire.position.y=5.5;g.add(spire);
+    g.add(Object.assign(new THREE.PointLight(0xffd700,0.8,8),{position:{x:0,y:3,z:0}}));
+  }
+  return g;
+}
+
+// ============================================================
+//  STAFF PORTAL
+// ============================================================
+function renderStaffPortal(){
+  const sessions=document.getElementById('staff-sessions');if(!sessions)return;
+  sessions.innerHTML='';
+  if(!state.completedWorlds.length){sessions.innerHTML='<p style="color:var(--sub);padding:20px">No sessions completed yet.</p>';return;}
+  state.completedWorlds.forEach(wId=>{
+    const w=WORLDS[wId];const meta=state.sessionMeta[wId]||{};
+    const responses=state.sessionResponses[wId]||{};
+    const dt=meta.completedAt?new Date(meta.completedAt).toLocaleString('en-GB'):'Unknown';
+    const chr=CHARACTERS.find(c=>c.id===state.characterId)||CHARACTERS[0];
+    let rHTML='';
+    (ACTIVITIES[wId]||[]).forEach((act,i)=>{
+      rHTML+=`<div class="response-item"><strong>Activity ${i+1}: ${act.title}</strong>`;
+      if(act.type==='video')rHTML+=`<em>Video watched: ${responses['video_'+wId]?'Yes':'Not confirmed'}</em>`;
+      else if(act.type==='freetext')rHTML+=`<em>${responses['ft_'+act.title]||'[No response recorded]'}</em>`;
+      else if(act.type==='wordsort'){
+        const v=responses['sort_'+wId]||{};const cols=act.columns||[];
+        rHTML+=`<em>${Object.entries(v).map(([wd,ci])=>wd+' → '+(cols[ci]||ci)).join(', ')||'[Not completed]'}</em>`;
+      }else if(act.type==='multiplechoice'){
+        const v=responses['mc_'+act.title];
+        rHTML+=`<em>Chose: "${v!==undefined?act.options[v]:'[No answer]'}"${v===act.correctIndex?' ✓':''}</em>`;
+      }else if(act.type==='twotextboxes'){
+        rHTML+=`<em>Used to think: "${responses['ttb1_'+wId]||'[blank]'}"</em><br><em>Now thinks: "${responses['ttb2_'+wId]||'[blank]'}"</em>`;
+      }else if(act.type==='commitmentcard'){
+        const v=responses['commitment_'+wId]||{};
+        act.fields.forEach(f=>{rHTML+=`<em>${f.label} "${v[f.id]||'[blank]'}"</em><br>`;});
+      }
+      rHTML+='</div>';
+    });
+    const card=document.createElement('div');card.className='session-summary';
+    card.innerHTML=`<div class="session-header">
+      <div><h3 style="font-family:Cinzel,serif;color:var(--amber)">World ${wId}: ${w.name}</h3>
+      <p class="session-meta-line">Student: <strong>${state.playerName||'?'}</strong> &nbsp;|&nbsp;
+        Character: <strong>${chr.emoji} ${chr.name}</strong> &nbsp;|&nbsp; Completed: <strong>${dt}</strong></p></div>
+      <div class="session-actions">
+        <button class="btn btn-secondary btn-sm" onclick="printSess(${wId})">🖨 Print</button>
+        <button class="btn btn-primary btn-sm" onclick="copySess(${wId})">📋 Copy</button>
+      </div></div>
+      <div class="session-responses">${rHTML}</div>`;
+    sessions.appendChild(card);
+  });
+}
+function sessText(wId){
+  const w=WORLDS[wId];const meta=state.sessionMeta[wId]||{};const responses=state.sessionResponses[wId]||{};
+  const dt=meta.completedAt?new Date(meta.completedAt).toLocaleString('en-GB'):'Unknown';
+  const chr=CHARACTERS.find(c=>c.id===state.characterId)||CHARACTERS[0];
+  let t=`UNITY QUEST — Session Record\n${'='.repeat(50)}\nWorld ${wId}: ${w.name}\n`;
+  t+=`Student: ${state.playerName||'?'}  |  Character: ${chr.name}  |  Completed: ${dt}\n\n`;
+  (ACTIVITIES[wId]||[]).forEach((act,i)=>{
+    t+=`Activity ${i+1}: ${act.title}\n`;
+    if(act.type==='freetext')t+=`Response: ${responses['ft_'+act.title]||'[No response]'}\n`;
+    else if(act.type==='multiplechoice'){const v=responses['mc_'+act.title];t+=`Chose: ${v!==undefined?act.options[v]:'[No answer]'}\n`;}
+    else if(act.type==='wordsort'){const v=responses['sort_'+wId]||{};const cols=act.columns||[];t+=`Word sort: ${Object.entries(v).map(([wd,ci])=>wd+' → '+cols[ci]).join(', ')||'[Not completed]'}\n`;}
+    else if(act.type==='twotextboxes')t+=`Used to think: ${responses['ttb1_'+wId]||'[blank]'}\nNow thinks: ${responses['ttb2_'+wId]||'[blank]'}\n`;
+    else if(act.type==='commitmentcard'){const v=responses['commitment_'+wId]||{};act.fields.forEach(f=>{t+=`${f.label} ${v[f.id]||'[blank]'}\n`;});}
+    t+='\n';
+  });return t;
+}
+function printSess(wId){const w=window.open('','_blank');w.document.write(`<pre style="font-family:monospace;white-space:pre-wrap;padding:20px;font-size:13px">${sessText(wId)}</pre>`);w.document.close();w.print();}
+function copySess(wId){navigator.clipboard.writeText(sessText(wId)).then(()=>gemPopup('Copied! ✦')).catch(()=>prompt('Copy:',sessText(wId)));}
+
+// ============================================================
+//  NAVIGATION & SCREENS
+// ============================================================
+function showScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const el=document.getElementById('screen-'+name);if(el)el.classList.add('active');
+  document.getElementById('hud').style.display='none';
+  document.getElementById('activity-overlay').style.display='none';
+  stopLoop();
+  if(name==='worldmap')renderWorldMap();
+  if(name==='shop')renderShop();
+  if(name==='community')renderCommunityWorld();
+  if(name==='staff')renderStaffPortal();
+  if(name==='charselect')renderCharSelect();
+}
+function renderCharSelect(){
+  const grid=document.getElementById('char-grid');if(!grid)return;grid.innerHTML='';
+  CHARACTERS.forEach(ch=>{
+    const card=document.createElement('div');card.className='char-card'+(state.characterId===ch.id?' selected':'');
+    card.innerHTML=`<div class="char-emoji">${ch.emoji}</div><h3>${ch.name}</h3><p>${ch.desc}</p>`;
+    card.onclick=()=>{
+      state.characterId=ch.id;
+      grid.querySelectorAll('.char-card').forEach(c=>c.classList.remove('selected'));
+      card.classList.add('selected');
+      const btn=document.getElementById('btn-charconfirm');if(btn)btn.disabled=false;
+    };grid.appendChild(card);
+  });
+}
+function renderWorldMap(){
+  const container=document.getElementById('world-nodes-container');if(!container)return;
+  container.innerHTML='';
+  const ge=document.getElementById('gem-display');
+  if(ge)ge.textContent='💎 '+state.gems+' gems';
+  const emo=['🌍','💬','🔍','📜','👟','🤝','⭐'];
+  WORLDS.forEach(w=>{
+    const unlocked=state.unlockedWorlds.includes(w.id);
+    const completed=state.completedWorlds.includes(w.id);
+    const node=document.createElement('div');
+    node.style.cssText=`display:flex;align-items:center;gap:14px;padding:13px 18px;border-radius:14px;
+      width:100%;max-width:500px;cursor:${unlocked?'pointer':'not-allowed'};transition:all 0.25s;
+      border:1.5px solid ${completed?'rgba(0,230,118,0.5)':unlocked?'rgba(78,205,196,0.35)':'rgba(255,255,255,0.08)'};
+      background:${completed?'rgba(0,25,12,0.8)':unlocked?'rgba(3,20,40,0.8)':'rgba(5,5,10,0.6)'};
+      box-shadow:${completed?'0 0 16px rgba(0,230,118,0.12)':unlocked?'0 0 16px rgba(78,205,196,0.08)':'none'}`;
+    if(unlocked){node.onmouseenter=()=>{node.style.borderColor=completed?'rgba(0,230,118,0.8)':'rgba(78,205,196,0.7)';node.style.transform='translateX(4px)';};node.onmouseleave=()=>{node.style.borderColor=completed?'rgba(0,230,118,0.5)':'rgba(78,205,196,0.35)';node.style.transform='';};}
+    node.innerHTML=`<div style="font-size:1.8rem;width:38px;text-align:center;flex-shrink:0">${emo[w.id]}</div>
+      <div style="flex:1"><div style="font-family:Cinzel,serif;font-size:0.85rem;color:${completed?'#00e676':unlocked?'var(--teal)':'#555'}">World ${w.id}</div>
+      <div style="font-size:0.8rem;color:${unlocked?'var(--sub)':'#444'};margin-top:2px">${w.name}</div></div>
+      <div style="font-size:1.2rem">${completed?'✅':unlocked?'▶':'🔒'}</div>`;
+    if(unlocked)node.onclick=()=>enterWorld(w.id);
+    container.appendChild(node);
+  });
+}
+function enterWorld(worldId){
+  if(!state.unlockedWorlds.includes(worldId))return;
+  currentWorldId=worldId;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('activity-overlay').style.display='none';
+  document.getElementById('hud').style.display='flex';
+  updateHUD();buildWorld(worldId);startLoop();
+}
+
+// ============================================================
+//  INPUT
+// ============================================================
+function initInput(){
+  document.addEventListener('keydown',e=>keys[e.code]=true);
+  document.addEventListener('keyup',e=>keys[e.code]=false);
+  const cv=document.getElementById('canvas');
+  cv.addEventListener('mousedown',e=>{mouseDown=true;lastMX=e.clientX;lastMY=e.clientY;});
+  window.addEventListener('mouseup',()=>mouseDown=false);
+  window.addEventListener('mousemove',e=>{
+    if(!mouseDown)return;
+    cameraYaw-=(e.clientX-lastMX)*0.005;
+    cameraPitch=Math.max(0.08,Math.min(0.78,cameraPitch-(e.clientY-lastMY)*0.004));
+    lastMX=e.clientX;lastMY=e.clientY;
+  });
+  // Touch camera
+  let tCamId=null,lastTX=0,lastTY=0;
+  cv.addEventListener('touchstart',e=>{Array.from(e.changedTouches).forEach(t=>{if(t.clientX>window.innerWidth*0.35){tCamId=t.identifier;lastTX=t.clientX;lastTY=t.clientY;}});},{passive:true});
+  cv.addEventListener('touchmove',e=>{Array.from(e.changedTouches).forEach(t=>{if(t.identifier===tCamId){cameraYaw-=(t.clientX-lastTX)*0.006;cameraPitch=Math.max(0.08,Math.min(0.78,cameraPitch-(t.clientY-lastTY)*0.005));lastTX=t.clientX;lastTY=t.clientY;}});},{passive:true});
+  cv.addEventListener('touchend',e=>{Array.from(e.changedTouches).forEach(t=>{if(t.identifier===tCamId)tCamId=null;});},{passive:true});
+  // Joystick
+  const zone=document.getElementById('joystick-zone');
+  if(zone){let ja=false,jid=null,jox=0,joy=0;const D=15,MAX=50;
+    zone.addEventListener('touchstart',e=>{e.preventDefault();const t=e.changedTouches[0];ja=true;jid=t.identifier;jox=t.clientX;joy=t.clientY;},{passive:false});
+    zone.addEventListener('touchmove',e=>{e.preventDefault();if(!ja)return;Array.from(e.changedTouches).forEach(t=>{if(t.identifier!==jid)return;const dx=t.clientX-jox,dy=t.clientY-joy;const dist=Math.sqrt(dx*dx+dy*dy);if(dist<D){touchMove={x:0,z:0};return;}const n=Math.min(dist,MAX)/MAX;touchMove={x:(dx/dist)*n,z:(dy/dist)*n};});},{passive:false});
+    const ej=()=>{ja=false;touchMove={x:0,z:0};};zone.addEventListener('touchend',ej,{passive:true});zone.addEventListener('touchcancel',ej,{passive:true});}
+  const jb=document.getElementById('btn-jump-touch');
+  if(jb){jb.addEventListener('touchstart',e=>{e.preventDefault();touchJump=true;});jb.addEventListener('touchend',()=>touchJump=false);}
+  if(window.matchMedia('(pointer:coarse)').matches)document.getElementById('touch-controls').style.display='flex';
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+function init(){
+  loadState();initThreeJS();initInput();
+  // Close facilitator modal
+  document.getElementById('btn-close-facilitator').onclick=()=>document.getElementById('facilitator-modal').style.display='none';
+  // Title buttons
+  document.getElementById('btn-start').onclick=()=>{
+    if(state.characterId&&state.playerName)showScreen('worldmap');
+    else if(state.characterId)showScreen('nameentry');
+    else showScreen('charselect');
+  };
+  document.getElementById('btn-staff').onclick=()=>{
+    showScreen('staff');
+    document.getElementById('staff-login').style.display='flex';
+    document.getElementById('staff-content').style.display='none';
+  };
+  // Char select
+  document.getElementById('btn-charconfirm').onclick=()=>{
+    if(!state.characterId)return;saveState();
+    if(state.playerName)showScreen('worldmap');else showScreen('nameentry');
+  };
+  // Name entry
+  const ni=document.getElementById('player-name-input');
+  const nb=document.getElementById('btn-nameconfirm');
+  if(ni&&nb){ni.value=state.playerName||'';
+    const go=()=>{const n=ni.value.trim();if(!n){ni.style.borderColor='#ff5252';return;}state.playerName=n;saveState();showScreen('worldmap');};
+    nb.onclick=go;ni.addEventListener('keydown',e=>e.key==='Enter'&&go());
+  }
+  // World map
+  document.getElementById('btn-shop').onclick=()=>showScreen('shop');
+  document.getElementById('btn-community').onclick=()=>showScreen('community');
+  document.getElementById('btn-back-shop').onclick=()=>showScreen('worldmap');
+  document.getElementById('btn-back-community').onclick=()=>showScreen('worldmap');
+  // HUD
+  document.getElementById('btn-pause').onclick=()=>{stopLoop();showScreen('worldmap');};
+  document.getElementById('btn-facilitator').onclick=()=>{
+    const acts=ACTIVITIES[currentWorldId];
+    showFacilitatorTip(acts&&acts[activityStep]?acts[activityStep].facilitatorTip:'');
+  };
+  // Staff PIN
+  const pinIn=document.getElementById('staff-pin-input');
+  const pinBtn=document.getElementById('btn-staff-login');
+  if(pinIn&&pinBtn){
+    const tryPin=()=>{
+      if(pinIn.value===STAFF_PIN){
+        document.getElementById('staff-login').style.display='none';
+        document.getElementById('staff-content').style.display='flex';
+        renderStaffPortal();
+      }else{pinIn.style.borderColor='#ff5252';pinIn.value='';pinIn.placeholder='Try again...';}
+    };
+    pinBtn.onclick=tryPin;pinIn.addEventListener('keydown',e=>e.key==='Enter'&&tryPin());
+  }
+  document.getElementById('btn-staff-back').onclick=()=>showScreen('title');
+  document.addEventListener('keydown',e=>{
+    if(e.code==='Escape'&&document.getElementById('activity-overlay').style.display==='flex'){
+      document.getElementById('activity-overlay').style.display='none';
+      document.getElementById('hud').style.display='flex';
+      const pp=document.getElementById('portal-prompt');if(pp)pp.style.display='none';
+      startLoop();
+    }
+  });
+  showScreen('title');
+}
+window.addEventListener('load',init);
+</script>
+</body>
+</html>
