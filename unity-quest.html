@@ -371,7 +371,7 @@ body{background:var(--deep);overflow:hidden;font-family:'Nunito',sans-serif;colo
     <button id="btn-jump-touch">JUMP</button>
   </div>
 
-  <div id="portal-prompt">Press <b>E</b> or tap <b>TALK</b> to begin activities</div>
+  <div id="portal-prompt">✦ Go to the portal ✦</div>
 
 </div><!-- /#ui -->
 <script>
@@ -454,15 +454,16 @@ const ACTIVITIES={
      placeholder:"1.\n2.\n3.\n4.\n5.",
      facilitatorTip:"Race might or might not appear on their list. Don't force it.\n\nAfterwards, you might note: 'Race is a part of who some people are — something others notice and make assumptions about. It might not be on your list, but for some people it's something others constantly react to.'"},
     {type:'multiplechoice',title:'Key Word: Racism',
-     instruction:"Let's make sure we understand what some important words actually mean.\n\n• RACE — a word people use to describe how some people look: skin colour, where their family comes from. Everyone has a race.\n• CULTURE — the things families do, eat, celebrate and believe. Two people can look similar but have very different cultures.\n• RACISM — when someone is treated badly, or spoken to badly, because of their race. It is always wrong.",
+     instruction:"Let's make sure we understand what some important words actually mean.\n\n• RACE — a word people use to describe how some people look: skin colour, where their family comes from. Everyone has a race.\n• CULTURE — the things families do, eat, celebrate and believe. Two people can look similar but have very different cultures.",
      question:"What is RACISM?",
      options:["When someone doesn't like another person's music","When someone is treated badly because of their race — and it is always wrong","When people from different countries disagree about things","Just noticing that people look different from each other"],
      correctIndex:1,
      feedback:["Not quite — disliking someone's taste is different. Racism is specifically about race.","Exactly right. Racism means treating someone badly — including what you say — because of their race. It is always wrong.","Good thought, but racism is specifically about treating someone badly because of their race.","Just noticing differences isn't racism — racism is when someone is treated badly because of those differences."],
      facilitatorTip:"Keep explanations simple and age-appropriate. Follow the student's curiosity.\n\nIf you're talking for more than 2 minutes straight — stop and ask a question.\n\nStudents may hold inaccurate beliefs — don't shut them down. Ask: 'Where did you get that idea from?'"},
-    {type:'freetext',title:'Different Looks, Same Loves',
+    {type:'freetext',title:'Different People, Same Interests',
      instruction:"Race doesn't determine what someone is like, what they can do, or what they're worth. Everyone is more than how they look.",
-     prompt:"Can you think of two people who might look very different from each other — but love exactly the same things? Describe them and what they both love.",
+     yesnoPrompt:"Can you think of two people who might look very different from each other — but like the same things?",
+     prompt:"Can you describe any?",
      placeholder:"Write your ideas here...",
      facilitatorTip:"Accept any genuine response. The goal is to separate appearance from personality and interests.\n\nCelebrate creative answers. Key message: 'Does knowing what race means change how you think about it?'"},
   ],
@@ -990,9 +991,8 @@ function updatePlayer(dt){
   if(portalMesh){
     const pd=playerGroup.position.distanceTo(portalMesh.position);
     const pp=document.getElementById('portal-prompt');
-    if(pd<4.5&&!portalNear){portalNear=true;if(pp)pp.style.display='block';}
-    else if(pd>=4.5&&portalNear){portalNear=false;if(pp)pp.style.display='none';}
-    if(pd<4.5&&(keys['KeyE']||keys['Enter'])){keys['KeyE']=false;keys['Enter']=false;startActivities();}
+    if(!portalNear){portalNear=true;if(pp)pp.style.display='block';}
+    if(pd<2.2){startActivities();}
   }
 }
 function updateCamera(){
@@ -1031,10 +1031,15 @@ function updateGems(dt,elapsed){
   if(portalMesh){
     portalMesh.rotation.y+=dt*0.7;
     const pulse=0.5+0.5*Math.sin(elapsed*3);
+    const pd=playerGroup?playerGroup.position.distanceTo(portalMesh.position):99;
+    const nearBoost=pd<6?Math.max(0,(6-pd)/6):0;
+    const baseEI=0.9+pulse*0.4+nearBoost*1.8;
     portalMesh.children.forEach(c=>{
       if(c.material&&c.material.emissiveIntensity!==undefined)
-        c.material.emissiveIntensity=0.7+pulse*0.3;
+        c.material.emissiveIntensity=baseEI;
+      if(c.isPointLight)c.intensity=2.0+nearBoost*6+pulse*1.5;
     });
+    portalMesh.scale.setScalar(1+nearBoost*0.18+pulse*0.04);
   }
 }
 function gemPopup(msg){
@@ -1127,10 +1132,30 @@ function renderVideo(c,act){
   };
 }
 function renderFreeText(c,act){
+  const key='ft_'+act.title;
+  const ynKey='yn_'+act.title;
+  if(act.yesnoPrompt){
+    const ynSaved=activityAnswers[ynKey];
+    const qp=document.createElement('p');qp.className='activity-prompt';qp.style.marginBottom='14px';
+    qp.textContent=act.yesnoPrompt;c.appendChild(qp);
+    const btnRow=document.createElement('div');btnRow.style.cssText='display:flex;gap:12px;margin-bottom:18px;';
+    ['Yes','No'].forEach(label=>{
+      const b=document.createElement('button');b.className='btn btn-secondary';b.textContent=label;
+      b.style.cssText='flex:1;font-size:1rem;padding:10px 0;';
+      if(ynSaved===label){b.style.boxShadow='0 0 14px var(--teal)';b.style.borderColor='var(--teal)';}
+      b.onclick=()=>{
+        activityAnswers[ynKey]=label;
+        btnRow.querySelectorAll('button').forEach(x=>{x.style.boxShadow='';x.style.borderColor='';});
+        b.style.boxShadow='0 0 14px var(--teal)';b.style.borderColor='var(--teal)';
+      };
+      btnRow.appendChild(b);
+    });
+    c.appendChild(btnRow);
+  }
   const p=document.createElement('p');p.className='activity-prompt';p.textContent=act.prompt;c.appendChild(p);
   const ta=document.createElement('textarea');ta.className='game-textarea';ta.rows=5;
   ta.placeholder=act.placeholder||'Write your thoughts here...';
-  const key='ft_'+act.title;ta.value=activityAnswers[key]||'';
+  ta.value=activityAnswers[key]||'';
   ta.oninput=()=>{activityAnswers[key]=ta.value;};c.appendChild(ta);
 }
 function renderWordSort(c,act){
