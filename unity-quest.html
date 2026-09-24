@@ -571,7 +571,7 @@ let cameraYaw=0,cameraPitch=0.38;
 const CAM_DIST=8,CAM_HEIGHT=3.5;
 let touchMove={x:0,z:0},touchJump=false;
 let currentWorldId=null,activityStep=0,activityAnswers={};
-let portalNear=false;
+let portalNear=false,portalActivated=false;
 let mouseDown=false,lastMX=0,lastMY=0;
 let communityScene=null,communityCamera=null;
 
@@ -762,7 +762,7 @@ function buildWorld(worldId){
   portalMesh=pGrp;
 
   // Gems
-  worldGems=[];
+  worldGems=[];portalActivated=false;
   [{x:8,z:-8},{x:-10,z:-5},{x:12,z:5},{x:-8,z:11},{x:5,z:16},{x:-15,z:4}].forEach(pos=>{
     const gg=new THREE.Group();
     const gem=new THREE.Mesh(new THREE.OctahedronGeometry(0.3,0),
@@ -988,11 +988,9 @@ function updatePlayer(dt){
   if(len>0)playerGroup.rotation.y=Math.atan2(dx,dz);
 
   // Portal proximity
-  if(portalMesh){
+  if(portalMesh&&portalActivated){
     const pd=playerGroup.position.distanceTo(portalMesh.position);
-    const pp=document.getElementById('portal-prompt');
-    if(!portalNear){portalNear=true;if(pp)pp.style.display='block';}
-    if(pd<2.2){startActivities();}
+    if(pd<2.2){portalFlashThen(startActivities);}
   }
 }
 function updateCamera(){
@@ -1015,6 +1013,12 @@ function updateGems(dt,elapsed){
     if(playerGroup&&playerGroup.position.distanceTo(gd.mesh.position)<1.8){
       gd.collected=true;scene.remove(gd.mesh);
       state.gems+=2;saveState();updateHUD();gemPopup('+2 ✦');
+      const collected=worldGems.filter(g=>g.collected).length;
+      if(!portalActivated&&collected>=3){
+        portalActivated=true;
+        const pp=document.getElementById('portal-prompt');if(pp)pp.style.display='block';
+        if(portalMesh){portalMesh.scale.setScalar(1.5);}
+      }
     }
   });
   // Animate wisps — slow upward drift
@@ -1029,17 +1033,25 @@ function updateGems(dt,elapsed){
   }
   // Portal pulse
   if(portalMesh){
-    portalMesh.rotation.y+=dt*0.7;
     const pulse=0.5+0.5*Math.sin(elapsed*3);
-    const pd=playerGroup?playerGroup.position.distanceTo(portalMesh.position):99;
-    const nearBoost=pd<6?Math.max(0,(6-pd)/6):0;
-    const baseEI=0.9+pulse*0.4+nearBoost*1.8;
-    portalMesh.children.forEach(c=>{
-      if(c.material&&c.material.emissiveIntensity!==undefined)
-        c.material.emissiveIntensity=baseEI;
-      if(c.isPointLight)c.intensity=2.0+nearBoost*6+pulse*1.5;
-    });
-    portalMesh.scale.setScalar(1+nearBoost*0.18+pulse*0.04);
+    if(!portalActivated){
+      portalMesh.rotation.y+=dt*0.2;
+      portalMesh.children.forEach(c=>{
+        if(c.material&&c.material.emissiveIntensity!==undefined)c.material.emissiveIntensity=0.08+pulse*0.06;
+        if(c.isPointLight)c.intensity=0.2+pulse*0.15;
+      });
+      portalMesh.scale.setScalar(0.85+pulse*0.03);
+    }else{
+      portalMesh.rotation.y+=dt*0.9;
+      const pd=playerGroup?playerGroup.position.distanceTo(portalMesh.position):99;
+      const nearBoost=pd<6?Math.max(0,(6-pd)/6):0;
+      const baseEI=1.1+pulse*0.5+nearBoost*2.0;
+      portalMesh.children.forEach(c=>{
+        if(c.material&&c.material.emissiveIntensity!==undefined)c.material.emissiveIntensity=baseEI;
+        if(c.isPointLight)c.intensity=3.0+nearBoost*7+pulse*2.0;
+      });
+      portalMesh.scale.setScalar(1+nearBoost*0.2+pulse*0.06);
+    }
   }
 }
 function gemPopup(msg){
@@ -1070,6 +1082,14 @@ function stopLoop(){if(animationId){cancelAnimationFrame(animationId);animationI
 // ============================================================
 //  ACTIVITY SYSTEM
 // ============================================================
+function portalFlashThen(cb){
+  stopLoop();
+  const fl=document.createElement('div');
+  fl.style.cssText='position:fixed;inset:0;background:rgba(78,205,196,0);z-index:100;pointer-events:none;transition:background 0.35s ease';
+  document.body.appendChild(fl);
+  requestAnimationFrame(()=>{fl.style.background='rgba(78,205,196,0.95)';});
+  setTimeout(()=>{fl.style.background='rgba(255,255,255,0.0)';fl.style.transition='background 0.5s ease';setTimeout(()=>{fl.remove();cb();},500);},380);
+}
 function startActivities(){
   const acts=ACTIVITIES[currentWorldId];if(!acts)return;
   activityStep=state.worldProgress[currentWorldId]||0;
@@ -1291,7 +1311,7 @@ function finishSession(){
   }
   delete state.worldProgress[currentWorldId];saveState();
   document.getElementById('activity-overlay').style.display='none';
-  stopLoop();scene=null;playerGroup=null;worldGems=[];wispPoints=null;portalMesh=null;
+  stopLoop();scene=null;playerGroup=null;worldGems=[];wispPoints=null;portalMesh=null;portalActivated=false;
   showCompletionModal(currentWorldId,first);
 }
 function showCompletionModal(worldId,first){
