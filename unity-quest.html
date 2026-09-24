@@ -1563,6 +1563,7 @@ function enterWorld(worldId){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('activity-overlay').style.display='none';
   document.getElementById('hud').style.display='flex';
+  const pp=document.getElementById('portal-prompt');if(pp)pp.style.display='none';
   updateHUD();buildWorld(worldId);startLoop();
 }
 
